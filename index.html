@@ -195,9 +195,17 @@ const KEY="barlog.v1";
 
 /* ── state ── */
 let S=null, tab="train", timer=null, tick=null, ac=null, editSess="A", openHist=-1, bfSid="A", bfWeek=null, bfLog={}, bfHoldStart=null, bfHoldEx=null, bfHoldTick=null;
+/* backfill form fields live here so a re-render (chip tap, hold tick, week change) can't reset them */
+let bfDate=null, bfReps="", bfSecs="", bfNote="", bfRice=false, bfAdv=null;
+let openPr=null;
 function expandHist(i){ openHist=openHist===i?-1:i; render(); }
 function bfClearHold(){ if(bfHoldTick)clearInterval(bfHoldTick); bfHoldTick=null; bfHoldEx=null; bfHoldStart=null; }
-function setBfSess(id){ bfSid=id; bfLog={}; bfClearHold(); render(); }
+function setBfSess(id){ bfSid=id; bfLog={}; bfAdv=null; bfClearHold(); render(); }
+const bfDay=()=>bfDate||dayKey();
+const bfAdvOn=()=>bfAdv==null?bfWillAdv():bfAdv;
+function bfSet(k,v){ ({date:()=>bfDate=v,reps:()=>bfReps=v,secs:()=>bfSecs=v,
+  note:()=>bfNote=v,rice:()=>bfRice=v,adv:()=>bfAdv=v})[k](); }
+function bfResetForm(){ bfDate=null; bfReps=""; bfSecs=""; bfNote=""; bfRice=false; bfAdv=null; }
 function setBfWeek(w){ bfWeek=w; render(); }
 function bfClearLog(){ bfLog={}; bfClearHold(); render(); }
 function bfPlan(){ return S.plan.find(p=>p.id===bfSid); }
@@ -446,12 +454,12 @@ function bfToggleHold(exId){
   }
 }
 function addPast(){
-  const d=document.getElementById("bfDate").value;
-  const sid=document.getElementById("bfSess").value;
-  const wk=parseInt(document.getElementById("bfWeek").value,10);
-  const adv=document.getElementById("bfAdv").checked;
-  const note=(document.getElementById("bfNote")||{}).value.trim();
-  const rice=document.getElementById("bfRice")&&document.getElementById("bfRice").checked;
+  const d=bfDay();
+  const sid=bfSid;
+  const wk=bfWeek==null?S.week:bfWeek;
+  const adv=bfAdvOn();
+  const note=bfNote.trim();
+  const rice=bfRice;
   if(!d){ alert("Pick a date."); return; }
   const plan=S.plan.find(p=>p.id===sid);
   const detail=buildBfDetail(sid);
@@ -466,8 +474,8 @@ function addPast(){
       S.prs[e.pr].sort((a,b)=>a.date<b.date?-1:a.date>b.date?1:0);
     });
   }else{
-    reps=parseInt(document.getElementById("bfReps").value,10);
-    secs=parseInt(document.getElementById("bfSecs").value,10);
+    reps=parseInt(bfReps,10);
+    secs=parseInt(bfSecs,10);
     if(isNaN(reps))reps=0; if(isNaN(secs))secs=0;
     if(!reps&&!secs){ alert("Log at least one exercise, or enter rep/sec totals."); return; }
   }
@@ -478,7 +486,7 @@ function addPast(){
   S.history.push(entry);
   S.history.sort((a,b)=>b.date<a.date?-1:b.date>a.date?1:0);
   if(adv){ S.rot++; S.today.sid=nextId(); }
-  bfSid=sid; bfWeek=null; bfLog={}; bfClearHold();
+  bfSid=sid; bfWeek=null; bfLog={}; bfClearHold(); bfResetForm();
   commit();
   toast("Logged "+sid+" \u00b7 next up "+nextId());
 }
@@ -548,6 +556,29 @@ function delHist(i){
   }
   commit();
   toast("Removed \u00b7 next up "+nextId());
+}
+function setHistDate(i,v){
+  const r=S.history[i]; if(!r||!v||v===r.date)return;
+  r.date=v;
+  S.history.sort((a,b)=>b.date<a.date?-1:b.date>a.date?1:0);
+  openHist=S.history.indexOf(r);
+  commit();
+  toast("Moved to "+shortD(v));
+}
+function togglePr(k){ openPr=openPr===k?null:k; render(); }
+function setMaxDate(k,i,v){
+  const list=S.prs[k]||[], e=list[i]; if(!e||!v||v===e.date)return;
+  e.date=v;
+  list.sort((a,b)=>a.date<b.date?-1:a.date>b.date?1:0);
+  commit();
+  toast("Moved to "+shortD(v));
+}
+function delMax(k,i){
+  const list=S.prs[k]||[], e=list[i]; if(!e)return;
+  if(!confirm("Remove the "+PRS[k][0]+" entry of "+e.value+PRS[k][1]+" from "+shortD(e.date)+"?"))return;
+  list.splice(i,1);
+  commit();
+  toast("Max removed");
 }
 function bumpRot(d){
   S.rot=Math.max(0,S.rot+d);
@@ -782,10 +813,20 @@ function viewProgress(){
   let h='<div class="sec">Maxes</div>';
   Object.keys(PRS).forEach(k=>{
     const list=S.prs[k]||[], last=list.length?list[list.length-1].value:null;
-    h+='<div class="pr"><div class="prTop"><span class="prN">'+PRS[k][0]+'</span>'+
+    h+='<div class="pr"'+(list.length?' onclick="togglePr(\''+k+'\')" style="cursor:pointer"':'')+'>'+
+       '<div class="prTop"><span class="prN">'+PRS[k][0]+'</span>'+
        '<span class="prV">'+(last==null?"—":last+PRS[k][1])+'</span></div>'+
        '<div class="prRow">'+spark(list.map(p=>p.value))+
-       '<span class="adjL">'+(list.length?list.length+" test"+(list.length>1?"s":""):"untested")+'</span></div></div>';
+       '<span class="adjL">'+(list.length?list.length+" test"+(list.length>1?"s":"")+(openPr===k?" ▾":" ▸"):"untested")+'</span></div></div>';
+    if(openPr===k&&list.length){
+      h+='<div style="padding:4px 0 14px;border-bottom:1px solid var(--steel)">';
+      list.forEach((entry,idx)=>{
+        h+='<div class="field"><label>'+esc(String(entry.value)+PRS[k][1])+'</label>'+
+           '<input type="date" value="'+esc(entry.date)+'" max="'+dayKey()+'" onchange="setMaxDate(\''+k+'\','+idx+',this.value)">'+
+           '<button class="miniB danger" onclick="delMax(\''+k+'\','+idx+')">×</button></div>';
+      });
+      h+='<div class="note" style="margin-top:10px">Latest by date is the one shown as your max. Fix a wrong date here, or drop the entry.</div></div>';
+    }
   });
   h+='<div class="note">Maxes fill in when you finish a Test day. Week 8 unlocks it.</div>';
   h+='<div class="sec">Log a max by hand</div>'+
@@ -802,7 +843,7 @@ function viewProgress(){
     const rp=r.reps!=null?r.reps:(r.total||0), sc=r.secs||0;
     const bits=[]; if(rp)bits.push(rp+" reps"); if(sc)bits.push(sc+"s");
     const hasD=r.detail&&r.detail.length;
-    const expandable=hasD||r.note||r.rice||r.manual;
+    const expandable=true;
     h+='<div class="hist"'+(expandable?' onclick="expandHist('+i+')" style="cursor:pointer"':'')+'>'+
        '<span class="histD">'+shortD(r.date)+'</span><span class="histS">'+r.sid+'</span>'+
        '<span class="histX">wk '+r.week+(bits.length?" · "+bits.join(" · "):"")+(r.manual?" · by hand":"")+
@@ -817,6 +858,8 @@ function viewProgress(){
            x.sets.join(", ")+(x.unit==="reps"?"":x.unit)+'</div>';
       });
       if(!hasD&&!r.note&&!r.rice)h+='<div style="font-size:12px;color:var(--galv)">No exercise detail logged.</div>';
+      h+='<div class="field"><label>Date</label>'+
+         '<input type="date" value="'+esc(r.date)+'" max="'+dayKey()+'" onchange="setHistDate('+i+',this.value)"></div>';
       h+='</div>';
     }
   });
@@ -825,21 +868,21 @@ function viewProgress(){
   if(!S.plan.some(p=>p.id===bfSid))bfSid=S.plan[0].id;
   h+='<div class="sec">Add a session you missed logging</div>'+
      '<div class="note">Trained but forgot to open this? Log each exercise, or fall back to rep/sec totals only.</div>'+
-     '<div class="field"><label>Date</label><input id="bfDate" type="date" value="'+dayKey()+'"></div>'+
+     '<div class="field"><label>Date</label><input id="bfDate" type="date" value="'+esc(bfDay())+'" max="'+dayKey()+'" oninput="bfSet(\'date\',this.value)"></div>'+
      '<div class="field"><label>Session</label><select id="bfSess" onchange="setBfSess(this.value)">'+
        S.plan.map(p=>'<option value="'+p.id+'"'+(p.id===bfSid?" selected":"")+'>'+p.id+' · '+esc(p.name)+'</option>').join("")+'</select></div>'+
      '<div class="field"><label>Week</label><input id="bfWeek" type="number" inputmode="numeric" value="'+bfw+'" onchange="setBfWeek(parseInt(this.value,10)||'+S.week+')"></div>'+
      viewBfExercises(bfSid,bfw)+
      '<div class="bfSub">Or totals only</div>'+
-     '<div class="field"><label>Reps</label><input id="bfReps" type="number" inputmode="numeric" placeholder="0">'+
-     '<label style="width:40px">Secs</label><input id="bfSecs" type="number" inputmode="numeric" placeholder="0"></div>'+
+     '<div class="field"><label>Reps</label><input id="bfReps" type="number" inputmode="numeric" placeholder="0" value="'+esc(bfReps)+'" oninput="bfSet(\'reps\',this.value)">'+
+     '<label style="width:40px">Secs</label><input id="bfSecs" type="number" inputmode="numeric" placeholder="0" value="'+esc(bfSecs)+'" oninput="bfSet(\'secs\',this.value)"></div>'+
      '<div class="note" style="margin-top:6px">Used only when no chips are logged above. Totals update live as you tap.</div>'+
-     '<div class="field"><label>Note</label><textarea id="bfNote" placeholder="How it felt, substitutions, etc."></textarea></div>'+
+     '<div class="field"><label>Note</label><textarea id="bfNote" placeholder="How it felt, substitutions, etc." oninput="bfSet(\'note\',this.value)">'+esc(bfNote)+'</textarea></div>'+
      '<div class="field"><label>Rice</label><span style="flex:1;font-size:12px;color:var(--galv);display:flex;align-items:center;gap:8px">'+
-       '<input id="bfRice" type="checkbox" style="flex:0 0 auto;width:18px;height:18px"> Did rice bag wrist prep</span></div>'+
+       '<input id="bfRice" type="checkbox"'+(bfRice?" checked":"")+' onchange="bfSet(\'rice\',this.checked)" style="flex:0 0 auto;width:18px;height:18px"> Did rice bag wrist prep</span></div>'+
      '<div class="field"><label>Rotate</label><span style="flex:1;font-size:12px;color:var(--galv);display:flex;align-items:center;gap:8px">'+
-       '<input id="bfAdv" type="checkbox"'+(bfWillAdv()?" checked":"")+' onchange="bfRotHint()" style="flex:0 0 auto;width:18px;height:18px">'+
-       '<span id="bfRotHint">'+rotHint(bfWillAdv())+'</span></span></div>'+
+       '<input id="bfAdv" type="checkbox"'+(bfAdvOn()?" checked":"")+' onchange="bfSet(\'adv\',this.checked);bfRotHint()" style="flex:0 0 auto;width:18px;height:18px">'+
+       '<span id="bfRotHint">'+rotHint(bfAdvOn())+'</span></span></div>'+
      '<div class="acts"><button class="btn" onclick="addPast()">Add session</button></div>';
 
   h+='<div class="sec">Rotation</div>'+
