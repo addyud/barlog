@@ -7,6 +7,9 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icon-192.png">
+<link rel="apple-touch-icon" href="icon-192.png">
 <title>Bar.Log</title>
 <style>
 *,*::before,*::after{box-sizing:border-box}
@@ -553,6 +556,45 @@ function bumpRot(d){
 }
 
 /* ── data ── */
+let persistState="checking", persistUsage=null;
+function persistNote(){
+  const b=(t,c)=>'<b style="color:'+(c||"var(--chalk)")+'">'+t+'</b>';
+  const used=(persistUsage!=null&&persistUsage>=1024)?" Using "+fmtBytes(persistUsage)+".":"";
+  if(persistState==="checking")return "Checking whether the browser will hold on to this log\u2026";
+  if(persistState==="granted")
+    return "This log is "+b("protected","var(--sodium)")+"."+used+
+      " The browser has agreed not to clear it to reclaim space. Clearing site data by hand still wipes it.";
+  if(persistState==="denied")
+    return "This log is "+b("not protected")+"."+used+
+      " The browser may clear it if the device runs low on space. Installing it to your home screen and asking again usually gets it granted.";
+  return "This browser "+b("can\u2019t say")+" whether the log is protected."+used+
+    " Back it up regularly either way.";
+}
+async function checkPersist(){
+  if(!navigator.storage||!navigator.storage.persisted){ persistState="unsupported"; return; }
+  try{
+    persistState=(await navigator.storage.persisted())?"granted":"denied";
+    if(navigator.storage.estimate){
+      const e=await navigator.storage.estimate();
+      if(e&&e.usage!=null)persistUsage=e.usage;
+    }
+  }catch(e){ persistState="unsupported"; }
+}
+async function askPersist(){
+  if(!navigator.storage||!navigator.storage.persist){ toast("This browser can't report storage protection"); return; }
+  try{
+    const ok=await navigator.storage.persist();
+    persistState=ok?"granted":"denied";
+    toast(ok?"Storage protected \u2014 the browser won't evict your log"
+            :"Browser said no \u2014 install to the home screen, then try again");
+  }catch(e){ persistState="unsupported"; toast("Couldn't ask this browser"); }
+  render();
+}
+function fmtBytes(n){
+  if(n==null)return "";
+  return n<1024?n+" B":n<1048576?(n/1024).toFixed(1)+" KB":(n/1048576).toFixed(1)+" MB";
+}
+
 function snapshot(){ return JSON.stringify(S,null,2); }
 function backupName(){ return "barlog-"+dayKey()+".json"; }
 
@@ -839,7 +881,11 @@ function viewEdit(){
 
 function viewData(){
   const canShare=!!navigator.share;
-  return '<div class="sec">Backup</div>'+
+  return '<div class="sec">Storage</div>'+
+    '<div class="note">'+persistNote()+'</div>'+
+    (persistState==="granted"||persistState==="checking"?'':
+      '<div class="acts"><button class="btn ghost" style="flex:1" onclick="askPersist()">Ask the browser to protect it</button></div>')+
+    '<div class="sec">Backup</div>'+
     '<div class="note">Everything lives in this browser only. Clearing site data or switching phones loses it, so move a copy off the device now and then. '+
       (canShare?'Share hands the file straight to AirDrop, Messages or Files.':'Copy puts the whole backup on the clipboard.')+'</div>'+
     '<div class="acts wrapb"><button class="btn" onclick="exportData()">Export file</button>'+
@@ -863,6 +909,7 @@ if(S.today.date!==dayKey())S.today={date:dayKey(),sid:nextId(),log:{},rice:false
 bfSid=S.today.sid;
 save();
 render();
+checkPersist().then(()=>{ if(tab==="data")render(); });
 </script>
 </body>
 </html>
