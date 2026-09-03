@@ -150,7 +150,7 @@ const DEFAULT_PLAN = [
  {id:"a2",n:"Handstand hold",tier:"skill",sets:3,reps:40,unit:"s",rest:60,note:"Freestanding. Stop with balance still in the tank."},
  {id:"a8",n:"Tuck front lever",tier:"skill",sets:5,reps:6,unit:"s",rest:90,prog:true,note:"Flat back, knees tight, hips level with the bar. Set ends when the back rounds."},
  {id:"a3",n:"Explosive pull ups",tier:"main",sets:5,reps:3,unit:"reps",rest:150,note:"Dead hang, pull to sternum, as fast as you can move."},
- {id:"a4",n:"Muscle up transitions",tier:"main",sets:5,reps:3,unit:"reps",rest:150,note:"Jumping or low bar. Chest over the bar, then turn the wrists."},
+ {id:"a4",n:"Band-assisted bar muscle ups",tier:"skill",sets:5,reps:1,unit:"reps",rest:180,note:"Use enough band assistance for a clean turnover. When five singles are consistent, move to four sets of two, then reduce assistance."},
  {id:"a5",n:"Straight bar dips",tier:"main",sets:3,reps:5,unit:"reps",rest:120,note:"The exit position. Usually the weak link in a first muscle up."},
  {id:"a6",n:"False grip ring rows",tier:"accessory",sets:3,reps:8,unit:"reps",rest:90,note:"Chest-high rings, body angled back, heels down. Wrist over the ring."}
 ]},
@@ -168,9 +168,9 @@ const DEFAULT_PLAN = [
  {id:"c2",n:"Handstand hold",tier:"skill",sets:2,reps:30,unit:"s",rest:60},
  {id:"c8",n:"Tuck front lever",tier:"skill",sets:4,reps:6,unit:"s",rest:90,prog:true,note:"Second session of the week. Same rule: form, not failure."},
  {id:"c3",n:"Pull ups",tier:"main",sets:8,reps:5,unit:"reps",rest:120,note:"Long rest. Nothing grindy. If rep 5 gets ugly, the set was too late."},
- {id:"c4",n:"Eccentric pull ups",tier:"main",sets:3,reps:4,unit:"reps",rest:150,note:"Four seconds down, every rep."},
- {id:"c5",n:"Tuck human flag",tier:"skill",sets:3,reps:12,unit:"s",rest:90,note:"Vertical ladder. Both sides each set."},
- {id:"c6",n:"Dead hang",tier:"accessory",sets:3,reps:45,unit:"s",rest:60,amrap:true}
+ {id:"c4",n:"Band-assisted bar muscle ups",tier:"skill",sets:3,reps:1,unit:"reps",rest:180,note:"A lighter technique exposure. Use enough assistance that every rep is clean; stop before pulling speed fades."},
+ {id:"c5",n:"Vertical human flag hold",tier:"skill",sets:3,reps:12,unit:"s",rest:90,note:"Both sides each set. Top arm pulls, bottom arm pushes with the elbow locked. Keep one foot lightly supported until both feet can leave cleanly."},
+ {id:"c6",n:"Hanging straight-leg raises",tier:"accessory",sets:3,reps:5,unit:"reps",rest:90,note:"Dead hang, posterior pelvic tilt, no swing. Build from 3 x 5 to 3 x 8 before making the variation harder."}
 ]},
 {id:"D",name:"Press volume / skill",ex:[
  {id:"d1",n:"Warm up",tier:"prep",sets:1,reps:5,unit:"min",rest:0,note:"Wrist rocks, scapular push ups, band face pulls."},
@@ -192,6 +192,7 @@ const DEFAULT_PLAN = [
 
 const PRS={pullup:["Pull ups",""],hspu:["HSPU",""],lever:["Tuck lever","s"],dip:["Dips",""],pushup:["Push ups",""]};
 const KEY="barlog.v1";
+const PLAN_VERSION=2;
 
 /* ── state ── */
 let S=null, tab="train", timer=null, tick=null, ac=null, editSess="A", openHist=-1, bfSid="A", bfWeek=null, bfLog={}, bfHoldStart=null, bfHoldEx=null, bfHoldTick=null;
@@ -212,18 +213,38 @@ function bfPlan(){ return S.plan.find(p=>p.id===bfSid); }
 function bfEx(exId){ const p=bfPlan(); return p&&p.ex.find(x=>x.id===exId); }
 
 function blank(){return{
+  planVersion:PLAN_VERSION,
   week:1, rot:0, alert:"vibrate",
   plan:JSON.parse(JSON.stringify(DEFAULT_PLAN)),
   today:{date:"",sid:"A",log:{},rice:false},
   history:[], prs:{pullup:[],hspu:[],lever:[],dip:[],pushup:[]}
 };}
 
+function migrate(state,fromVersion){
+  const setEx=(sid,eid,patch,drop=[])=>{
+    const s=state.plan&&state.plan.find(x=>x.id===sid);
+    const e=s&&s.ex&&s.ex.find(x=>x.id===eid);
+    if(!e)return;
+    drop.forEach(k=>delete e[k]);
+    Object.assign(e,patch);
+  };
+  if(fromVersion<2){
+    setEx("A","a4",{n:"Band-assisted bar muscle ups",tier:"skill",sets:5,reps:1,unit:"reps",rest:180,note:"Use enough band assistance for a clean turnover. When five singles are consistent, move to four sets of two, then reduce assistance."});
+    setEx("C","c4",{n:"Band-assisted bar muscle ups",tier:"skill",sets:3,reps:1,unit:"reps",rest:180,note:"A lighter technique exposure. Use enough assistance that every rep is clean; stop before pulling speed fades."});
+    setEx("C","c5",{n:"Vertical human flag hold",tier:"skill",sets:3,reps:12,unit:"s",rest:90,note:"Both sides each set. Top arm pulls, bottom arm pushes with the elbow locked. Keep one foot lightly supported until both feet can leave cleanly."});
+    setEx("C","c6",{n:"Hanging straight-leg raises",tier:"accessory",sets:3,reps:5,unit:"reps",rest:90,note:"Dead hang, posterior pelvic tilt, no swing. Build from 3 x 5 to 3 x 8 before making the variation harder."},["amrap"]);
+  }
+  state.planVersion=PLAN_VERSION;
+  return state;
+}
+
 function load(){
   try{
     const raw=localStorage.getItem(KEY);
-    if(raw){ const p=JSON.parse(raw); S=Object.assign(blank(),p);
+    if(raw){ const p=JSON.parse(raw), fromVersion=Number(p.planVersion||1); S=Object.assign(blank(),p);
       S.prs=Object.assign(blank().prs,p.prs||{});
-      if(!S.plan||!S.plan.length) S.plan=JSON.parse(JSON.stringify(DEFAULT_PLAN));
+      if(!S.plan||!S.plan.length) Balls=JSON.parse(JSON.stringify(DEFAULT_PLAN));
+      migrate(S,fromVersion); save();
       return; }
   }catch(e){ console.error("load failed",e); }
   S=blank();
@@ -693,7 +714,8 @@ function applyBackup(text){
   try{ p=JSON.parse(t); }catch(e){ alert("Could not read that: "+e.message); return; }
   if(!p||!p.plan||!p.today){ alert("Could not read that: not a Bar.Log backup"); return; }
   if(!confirm("Replace everything currently stored with this backup?"))return;
-  S=Object.assign(blank(),p); commit();
+  const fromVersion=Number(p.planVersion||1);
+  S=migrate(Object.assign(blank(),p),fromVersion); commit();
   toast("Restored");
 }
 function importData(){
