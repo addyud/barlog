@@ -150,7 +150,7 @@ const DEFAULT_PLAN = [
  {id:"a2",n:"Handstand hold",tier:"skill",sets:3,reps:40,unit:"s",rest:60,note:"Freestanding. Stop with balance still in the tank."},
  {id:"a8",n:"Tuck front lever",tier:"skill",sets:5,reps:6,unit:"s",rest:90,prog:true,note:"Flat back, knees tight, hips level with the bar. Set ends when the back rounds."},
  {id:"a3",n:"Explosive pull ups",tier:"main",sets:5,reps:3,unit:"reps",rest:150,note:"Dead hang, pull to sternum, as fast as you can move."},
- {id:"a4",n:"Band-assisted bar muscle ups",tier:"skill",sets:5,reps:1,unit:"reps",rest:180,note:"Use enough band assistance for a clean turnover. When five singles are consistent, move to four sets of two, then reduce assistance."},
+ {id:"a4",n:"Band-assisted bar muscle ups",tier:"skill",sets:5,reps:1,unit:"reps",rest:180,trackBand:true,note:"Use enough band assistance for a clean turnover. When five singles are consistent, move to four sets of two, then reduce assistance."},
  {id:"a5",n:"Straight bar dips",tier:"main",sets:3,reps:5,unit:"reps",rest:120,note:"The exit position. Usually the weak link in a first muscle up."},
  {id:"a6",n:"False grip ring rows",tier:"accessory",sets:3,reps:8,unit:"reps",rest:90,note:"Chest-high rings, body angled back, heels down. Wrist over the ring."}
 ]},
@@ -168,7 +168,7 @@ const DEFAULT_PLAN = [
  {id:"c2",n:"Handstand hold",tier:"skill",sets:2,reps:30,unit:"s",rest:60},
  {id:"c8",n:"Tuck front lever",tier:"skill",sets:4,reps:6,unit:"s",rest:90,prog:true,note:"Second session of the week. Same rule: form, not failure."},
  {id:"c3",n:"Pull ups",tier:"main",sets:8,reps:5,unit:"reps",rest:120,note:"Long rest. Nothing grindy. If rep 5 gets ugly, the set was too late."},
- {id:"c4",n:"Band-assisted bar muscle ups",tier:"skill",sets:3,reps:1,unit:"reps",rest:180,note:"A lighter technique exposure. Use enough assistance that every rep is clean; stop before pulling speed fades."},
+ {id:"c4",n:"Band-assisted bar muscle ups",tier:"skill",sets:3,reps:1,unit:"reps",rest:180,trackBand:true,note:"A lighter technique exposure. Use enough assistance that every rep is clean; stop before pulling speed fades."},
  {id:"c5",n:"Vertical human flag hold",tier:"skill",sets:3,reps:12,unit:"s",rest:90,note:"Both sides each set. Top arm pulls, bottom arm pushes with the elbow locked. Keep one foot lightly supported until both feet can leave cleanly."},
  {id:"c6",n:"Hanging straight-leg raises",tier:"accessory",sets:3,reps:5,unit:"reps",rest:90,note:"Dead hang, posterior pelvic tilt, no swing. Build from 3 x 5 to 3 x 8 before making the variation harder."}
 ]},
@@ -192,7 +192,7 @@ const DEFAULT_PLAN = [
 
 const PRS={pullup:["Pull ups",""],hspu:["HSPU",""],lever:["Tuck lever","s"],dip:["Dips",""],pushup:["Push ups",""]};
 const KEY="barlog.v1";
-const PLAN_VERSION=2;
+const PLAN_VERSION=3;
 
 /* ── state ── */
 let S=null, tab="train", timer=null, tick=null, ac=null, editSess="A", openHist=-1, bfSid="A", bfWeek=null, bfLog={}, bfHoldStart=null, bfHoldEx=null, bfHoldTick=null;
@@ -216,7 +216,7 @@ function blank(){return{
   planVersion:PLAN_VERSION,
   week:1, rot:0, alert:"vibrate",
   plan:JSON.parse(JSON.stringify(DEFAULT_PLAN)),
-  today:{date:"",sid:"A",log:{},rice:false},
+  today:{date:"",sid:"A",log:{},band:{},rice:false},
   history:[], prs:{pullup:[],hspu:[],lever:[],dip:[],pushup:[]}
 };}
 
@@ -234,6 +234,11 @@ function migrate(state,fromVersion){
     setEx("C","c5",{n:"Vertical human flag hold",tier:"skill",sets:3,reps:12,unit:"s",rest:90,note:"Both sides each set. Top arm pulls, bottom arm pushes with the elbow locked. Keep one foot lightly supported until both feet can leave cleanly."});
     setEx("C","c6",{n:"Hanging straight-leg raises",tier:"accessory",sets:3,reps:5,unit:"reps",rest:90,note:"Dead hang, posterior pelvic tilt, no swing. Build from 3 x 5 to 3 x 8 before making the variation harder."},["amrap"]);
   }
+  if(fromVersion<3){
+    setEx("A","a4",{trackBand:true});
+    setEx("C","c4",{trackBand:true});
+  }
+  if(!state.today.band)state.today.band={};
   state.planVersion=PLAN_VERSION;
   return state;
 }
@@ -258,15 +263,13 @@ const shortD=d=>d.slice(8,10)+"/"+d.slice(5,7);
 const esc=s=>String(s==null?"":s).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
 
 function phase(w){
-  if(w<=3)return{l:"Accumulate",d:"Add a set to the main work each week"};
+  if(w<=3)return{l:"Build",d:"Keep sets stable. Add difficulty only after every rep is clean"};
   if(w===4)return{l:"Deload",d:"Sets cut. Leave the park feeling fresh"};
   if(w<=7)return{l:"Intensify",d:"Add load or tempo, not sets"};
   return{l:"Test",d:"One max attempt per lift, fully rested"};
 }
 function setsFor(e,w){
-  if(e.tier==="prep"||e.tier==="skill")return e.sets;
-  if(w<=3)return e.sets+(w-1);
-  if(w===4)return Math.max(1,Math.round(e.sets*0.6));
+  if(w===4&&e.tier!=="prep"&&e.tier!=="skill")return Math.max(1,Math.round(e.sets*0.6));
   return e.sets;
 }
 function repsFor(e,w){
@@ -374,7 +377,8 @@ function nudge(exId,d){
 function pickSession(id){ S.today.sid=id; commit(); }
 function pickWeek(w){ S.week=w; commit(); }
 function toggleRice(){ S.today.rice=!S.today.rice; commit(); }
-function clearDay(){ S.today.log={}; commit(); }
+function clearDay(){ S.today.log={}; S.today.band={}; commit(); }
+function setTodayBand(id,v){ if(!S.today.band)S.today.band={}; S.today.band[id]=v; save(); }
 function cycleAlert(){ const o=["vibrate","sound","off"]; S.alert=o[(o.indexOf(S.alert)+1)%3]; commit(); }
 
 function finish(){
@@ -386,13 +390,16 @@ function finish(){
     if(!vals.length)return;
     const sum=vals.reduce((a,b)=>a+b,0);
     if(e.unit==="reps")reps+=sum; else if(e.unit==="s")secs+=sum;
-    detail.push({n:e.n,unit:e.unit,sets:vals});
+    const item={n:e.n,unit:e.unit,sets:vals};
+    const band=S.today.band&&S.today.band[e.id]&&S.today.band[e.id].trim();
+    if(band)item.band=band;
+    detail.push(item);
     if(e.pr)S.prs[e.pr]=(S.prs[e.pr]||[]).concat([{date:S.today.date||dayKey(),value:Math.max.apply(null,vals)}]);
   });
   S.history.unshift({date:S.today.date||dayKey(),sid:s.id,week:S.week,reps:reps,secs:secs,detail:detail});
   S.history=S.history.slice(0,300);
   if(!s.testOnly)S.rot++;
-  S.today={date:dayKey(),sid:nextId(),log:{},rice:S.today.rice};
+  S.today={date:dayKey(),sid:nextId(),log:{},band:{},rice:S.today.rice};
   stopTimer(); tab="progress"; commit();
 }
 
@@ -803,6 +810,10 @@ function viewTrain(ph){
     h+='<div class="ex"><div class="exTop"><div class="exN">'+esc(e.n)+'</div><div class="exT">'+
        (e.amrap?"max":cnt+" × "+tgt+unitOf(e))+(e.rest?" · "+mmss(e.rest)+" rest":"")+'</div></div>';
     if(e.note)h+='<div class="exNote">'+esc(e.note)+'</div>';
+    if(e.trackBand){
+      const band=(S.today.band&&S.today.band[e.id])||"";
+      h+='<div class="field"><label>Band</label><input value="'+esc(band)+'" placeholder="color or resistance" oninput="setTodayBand(\''+e.id+'\',this.value)"></div>';
+    }
     if(S.week>=5&&S.week<=7&&e.tier==="main")
       h+='<div class="exLoad">'+(e.load?"Load: "+esc(e.load):"No band here. Slow the eccentric to 3 seconds instead.")+'</div>';
     h+='<div class="chips">';
@@ -877,7 +888,7 @@ function viewProgress(){
       if(r.rice)h+='<div style="font-size:11px;color:var(--sodium);padding:0 0 8px">Rice bag ✓</div>';
       if(hasD)r.detail.forEach(x=>{
         h+='<div style="font-size:12px;color:var(--galv);padding:3px 0"><span style="color:var(--chalk)">'+esc(x.n)+'</span> · '+
-           x.sets.join(", ")+(x.unit==="reps"?"":x.unit)+'</div>';
+           x.sets.join(", ")+(x.unit==="reps"?"":x.unit)+(x.band?" · band "+esc(x.band):"")+'</div>';
       });
       if(!hasD&&!r.note&&!r.rice)h+='<div style="font-size:12px;color:var(--galv)">No exercise detail logged.</div>';
       h+='<div class="field"><label>Date</label>'+
@@ -970,7 +981,7 @@ function setEdit(id){ editSess=id; render(); }
 
 /* ── boot ── */
 load();
-if(S.today.date!==dayKey())S.today={date:dayKey(),sid:nextId(),log:{},rice:false};
+if(S.today.date!==dayKey())S.today={date:dayKey(),sid:nextId(),log:{},band:{},rice:false};
 bfSid=S.today.sid;
 save();
 render();
