@@ -401,6 +401,11 @@ const DEFAULT_PLAN = [
   }
 ];
 
+// Retain the original rice-bag preparation rows and their logging IDs.
+for(const [sid,id] of [["B","b7"],["D","d7"]]){
+  DEFAULT_PLAN.find(p=>p.id===sid).ex.push({id,n:"Rice bag wrists",tier:"prep",sets:1,reps:5,unit:"min",rest:0});
+}
+
 const PRS={pullup:["Pull ups",""],hspu:["HSPU",""],lever:["Tuck lever","s"],dip:["Dips",""],pushup:["Push ups",""]};
 const KEY="barlog.v1";
 const PLAN_VERSION=4;
@@ -447,24 +452,38 @@ function bfPlan(){ return S.plan.find(p=>p.id===bfSid); }
 function bfEx(exId){ const p=bfPlan(); return p&&p.ex.find(x=>x.id===exId); }
 
 function blank(){return{
-  planVersion:PLAN_VERSION,
+  planVersion:PLAN_VERSION, riceRestoreVersion:1,
   week:1, rot:0, alert:"vibrate",
   plan:JSON.parse(JSON.stringify(DEFAULT_PLAN)),
   today:{date:"",sid:"A",log:{},band:{},rice:false},
   history:[], prs:{pullup:[],hspu:[],lever:[],dip:[],pushup:[]}
 };}
 
-// Structural normalization only. Existing plans are adopted explicitly, never rewritten.
-function migrate(state,fromVersion){
+// Restore only the omitted rice preparation in already-adopted v4 plans, once.
+// Preserve manual replacements (including custom IDs), doses, order and other edits.
+function restoreRiceWork(plan){
+  for(const [sid,id] of [["B","b7"],["D","d7"]]){
+    const session=plan.find(p=>p.id===sid);
+    if(!session||session.ex.some(e=>e.id===id||/\brice\b/i.test(e.n||"")))continue;
+    const used=new Set(plan.flatMap(p=>p.ex.map(e=>e.id)));
+    let newId=id, suffix=1;
+    while(used.has(newId))newId=id+"rice"+(suffix++);
+    session.ex.push({id:newId,n:"Rice bag wrists",tier:"prep",sets:1,reps:5,unit:"min",rest:0});
+  }
+}
+// Other plan adoption remains explicit; no unrelated custom edits are rewritten.
+function migrate(state,fromVersion,riceRevision=0){
   state.planVersion=fromVersion;
   state.prs=Object.assign(blank().prs,state.prs||{});
   state.today=Object.assign(blank().today,state.today||{});
   state.planArchives=state.planArchives||[];
+  if(fromVersion===4&&riceRevision<1)restoreRiceWork(state.plan);
+  state.riceRestoreVersion=1;
   return state;
 }
 function archivePlan(){
   return JSON.parse(JSON.stringify({savedAt:new Date().toISOString(),plan:S.plan,
-    planVersion:S.planVersion,today:S.today,week:S.week,rot:S.rot}));
+    planVersion:S.planVersion,riceRestoreVersion:S.riceRestoreVersion,today:S.today,week:S.week,rot:S.rot}));
 }
 function switchPlan(archivedIndex){
   const previous=JSON.parse(JSON.stringify(S));
@@ -474,6 +493,8 @@ function switchPlan(archivedIndex){
   S.planArchives.push(saved);
   S.plan=JSON.parse(JSON.stringify(archived?archived.plan:DEFAULT_PLAN));
   S.planVersion=archived?archived.planVersion:PLAN_VERSION;
+  if(archived&&S.planVersion===4&&!archived.riceRestoreVersion)restoreRiceWork(S.plan);
+  S.riceRestoreVersion=1;
   S.week=archived?archived.week:1;
   S.rot=archived?archived.rot:S.rot;
   S.today=archived?JSON.parse(JSON.stringify(archived.today)):
@@ -492,7 +513,7 @@ function load(){
     if(raw){ const p=JSON.parse(raw), fromVersion=Number(p.planVersion||1); S=Object.assign(blank(),p);
       S.prs=Object.assign(blank().prs,p.prs||{});
       if(!S.plan||!S.plan.length) S.plan=JSON.parse(JSON.stringify(DEFAULT_PLAN));
-      migrate(S,fromVersion); save();
+      migrate(S,fromVersion,p.riceRestoreVersion||0); save();
       return; }
   }catch(e){ console.error("load failed",e); storageBlocked=true; }
   S=blank();
@@ -633,7 +654,7 @@ function finish(){
     if(e.pr)S.prs[e.pr]=(S.prs[e.pr]||[]).concat([{date:S.today.date||dayKey(),value:Math.max.apply(null,vals)}]);
   });
   openHist=-1;
-  S.history.unshift({date:S.today.date||dayKey(),sid:s.id,week:S.week,reps:reps,secs:secs,detail:detail});
+  S.history.unshift({date:S.today.date||dayKey(),sid:s.id,week:S.week,reps:reps,secs:secs,detail:detail,...(S.today.rice?{rice:true}:{})});
   // Keep older entries; backups include the complete history.
   if(!s.testOnly)S.rot++;
   S.today={date:dayKey(),sid:nextId(),log:{},band:{},rice:S.today.rice};
@@ -957,7 +978,7 @@ function applyBackup(text){
   if(!confirm("Replace everything currently stored with this backup?"))return;
   const fromVersion=Number(p.planVersion||1);
   stopTimer(); clearHold(); bfClearHold(); bfLog={}; bfResetForm();
-  S=migrate(Object.assign(blank(),p),fromVersion); storageBlocked=false;
+  S=migrate(Object.assign(blank(),p),fromVersion,p.riceRestoreVersion||0); storageBlocked=false;
   historyMode="recent"; historyMonth=""; historySession=""; historyPage=0; openHist=-1; commit();
   toast("Restored");
 }
@@ -1037,9 +1058,9 @@ function viewTrain(ph){
   });
   h+='</div><div class="note">'+(s.id===nid?"Next in the rotation.":"Rotation says "+nid+" next. Dot marks it.")+'</div>';
 
-  /* Keep optional legacy wrist tracking for older/custom plans. */
-  if(S.planVersion<4)h+='<div class="daily'+(S.today.rice?" on":"")+'" onclick="toggleRice()"><span class="box">'+(S.today.rice?"✓":"")+'</span>'+
-     '<span><div class="dailyT">Rice bag</div><div class="dailyS">Optional wrist work.</div></span></div>';
+  /* Daily rice tracking is available with every routine. */
+  h+='<div class="daily'+(S.today.rice?" on":"")+'" onclick="toggleRice()"><span class="box">'+(S.today.rice?"✓":"")+'</span>'+
+     '<span><div class="dailyT">Rice bag</div><div class="dailyS">Daily wrist prep. Tick when done.</div></span></div>';
 
   h+='<div class="sec">Session '+s.id+' · '+esc(s.name)+'</div>';
   if(S.today.date&&S.today.date!==dayKey())h+='<div class="note">Continuing unfinished log dated '+esc(S.today.date)+'. Finish saves that date; you can change it in Progress.</div>';
