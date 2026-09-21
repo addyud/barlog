@@ -401,6 +401,35 @@ const DEFAULT_PLAN = [
   }
 ];
 
+const PULL_NOTES={
+  A:["Front lever first. Explosive pulls support the muscle-up goal; full muscle-up attempts are paused while the turnover limitation remains unclear.",
+    "Brief easy handstand practice after warmup, then front lever as the main fresh pulling focus. Stop the balance practice before fatigue; explosive pulls support the muscle-up goal."],
+  C:["Front lever remains the primary pull skill. Human flag is paused initially; reassess a small exposure once recovery across the rotation is reliable.",
+    "Brief easy handstand practice after warmup, then front lever as the main fresh pulling focus. Keep the practice short enough to leave the lever fresh. Human flag remains paused initially."]
+};
+const HSPU_PROGRESS_BEFORE="After two repeatable, well-recovered exposures, try 2 reps in just one set if a clean rep would remain. Keep the other sets as singles and reassess before expanding doubles.";
+const HSPU_PROGRESS_NOW="When five singles are consistently comfortable and recovery is good, targeted HSPU work is the next candidate for a small manual increase. After two such exposures, try 2 reps in just one set only if a clean rep would remain; keep other sets as singles. No automatic increase or added general pressing.";
+function addHandstandPractice(plan){
+  for(const sid of ["A","C"]){
+    const session=plan.find(p=>p.id===sid); if(!session)continue;
+    // Conservatively retain manually added balance work instead of replacing it.
+    if(session.ex.some(e=>[sid.toLowerCase()+"2",sid.toLowerCase()+"9balance"].includes(e.id)||/hand\s*stand|hspu|straddle|balance/i.test(e.n||"")||(e.tier==="skill"&&e.id!==sid.toLowerCase()+"8")))continue;
+    const warm=session.ex.findIndex(e=>e.id===sid.toLowerCase()+"1"&&e.tier==="prep");
+    const lever=session.ex.findIndex(e=>e.id===sid.toLowerCase()+"8"&&/lever/i.test(e.n||""));
+    if(warm<0&&lever<0)continue; // Unknown custom sequence: do not guess its structure.
+    if(session.note===PULL_NOTES[sid][0])session.note=PULL_NOTES[sid][1];
+    const used=new Set(plan.flatMap(p=>p.ex.map(e=>e.id)));
+    const base=sid.toLowerCase()+"9balance"; let id=base, suffix=1;
+    while(used.has(id))id=base+(suffix++);
+    session.ex.splice(warm>=0?warm+1:lever,0,{id,n:"Easy two-arm handstand practice",tier:"skill",sets:1,reps:3,unit:"min",rest:0,budget:true,
+      note:"3 minutes TOTAL including rests. Short controlled freestanding balance/alignment practice and comfortable straddle transitions, with BOTH HANDS supported. Keep it easy: no maximal-duration holds or one-arm attempts. Shorten or skip if it starts to tire you before front lever.",
+      progression:"May build toward 5 minutes total only if quality stays easy and recovery permits. This is practice time, not continuous hold time. D remains the dedicated one-arm-preparation session."});
+  }
+  const hspu=plan.find(p=>p.id==="B")?.ex.find(e=>e.id==="b3");
+  if(hspu&&hspu.progression===HSPU_PROGRESS_BEFORE)hspu.progression=HSPU_PROGRESS_NOW;
+}
+addHandstandPractice(DEFAULT_PLAN);
+
 // Retain the original rice-bag preparation rows and their logging IDs.
 for(const [sid,id] of [["B","b7"],["D","d7"]]){
   DEFAULT_PLAN.find(p=>p.id===sid).ex.push({id,n:"Rice bag wrists",tier:"prep",sets:1,reps:5,unit:"min",rest:0});
@@ -452,7 +481,7 @@ function bfPlan(){ return S.plan.find(p=>p.id===bfSid); }
 function bfEx(exId){ const p=bfPlan(); return p&&p.ex.find(x=>x.id===exId); }
 
 function blank(){return{
-  planVersion:PLAN_VERSION, riceRestoreVersion:1,
+  planVersion:PLAN_VERSION, riceRestoreVersion:1, handstandPracticeVersion:1, reducedWeek4:true,
   week:1, rot:0, alert:"vibrate",
   plan:JSON.parse(JSON.stringify(DEFAULT_PLAN)),
   today:{date:"",sid:"A",log:{},band:{},rice:false},
@@ -472,18 +501,21 @@ function restoreRiceWork(plan){
   }
 }
 // Other plan adoption remains explicit; no unrelated custom edits are rewritten.
-function migrate(state,fromVersion,riceRevision=0){
+function migrate(state,fromVersion,riceRevision=0,handstandRevision=0){
   state.planVersion=fromVersion;
   state.prs=Object.assign(blank().prs,state.prs||{});
   state.today=Object.assign(blank().today,state.today||{});
   state.planArchives=state.planArchives||[];
   if(fromVersion===4&&riceRevision<1)restoreRiceWork(state.plan);
   state.riceRestoreVersion=1;
+  if(fromVersion===4&&handstandRevision<1)addHandstandPractice(state.plan);
+  state.handstandPracticeVersion=1;
+  state.reducedWeek4=state.reducedWeek4!==false;
   return state;
 }
 function archivePlan(){
   return JSON.parse(JSON.stringify({savedAt:new Date().toISOString(),plan:S.plan,
-    planVersion:S.planVersion,riceRestoreVersion:S.riceRestoreVersion,today:S.today,week:S.week,rot:S.rot}));
+    planVersion:S.planVersion,riceRestoreVersion:S.riceRestoreVersion,handstandPracticeVersion:S.handstandPracticeVersion,today:S.today,week:S.week,rot:S.rot}));
 }
 function switchPlan(archivedIndex){
   const previous=JSON.parse(JSON.stringify(S));
@@ -495,6 +527,8 @@ function switchPlan(archivedIndex){
   S.planVersion=archived?archived.planVersion:PLAN_VERSION;
   if(archived&&S.planVersion===4&&!archived.riceRestoreVersion)restoreRiceWork(S.plan);
   S.riceRestoreVersion=1;
+  if(archived&&S.planVersion===4&&!archived.handstandPracticeVersion)addHandstandPractice(S.plan);
+  S.handstandPracticeVersion=1;
   S.week=archived?archived.week:1;
   S.rot=archived?archived.rot:S.rot;
   S.today=archived?JSON.parse(JSON.stringify(archived.today)):
@@ -513,7 +547,7 @@ function load(){
     if(raw){ const p=JSON.parse(raw), fromVersion=Number(p.planVersion||1); S=Object.assign(blank(),p);
       S.prs=Object.assign(blank().prs,p.prs||{});
       if(!S.plan||!S.plan.length) S.plan=JSON.parse(JSON.stringify(DEFAULT_PLAN));
-      migrate(S,fromVersion,p.riceRestoreVersion||0); save();
+      migrate(S,fromVersion,p.riceRestoreVersion||0,p.handstandPracticeVersion||0); save();
       return; }
   }catch(e){ console.error("load failed",e); storageBlocked=true; }
   S=blank();
@@ -527,15 +561,24 @@ const shortD=d=>d.slice(8,10)+"/"+d.slice(5,7);
 const esc=s=>String(s==null?"":s).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
 
 function phase(w){
-  if(w===4)return{l:"Recovery",d:"Reduced sets and practice time. Take extra rest days as needed; omit optional work if recovery needs it"};
+  if(w===4)return S.reducedWeek4!==false?{l:"Recovery option",d:"Reduced targets selected. Use them when fatigue calls for less work; no missed-work catch-up is needed"}:{l:"Normal targets",d:"Normal targets selected. Choose reduced targets if fatigue or your recent training frequency calls for a lighter session"};
   if(w===8)return{l:"Review",d:"Review control and recovery. Optional benchmarks are available; no max testing is required"};
   return{l:"Practice",d:"Targets stay stable. Progress one variable only after repeatable quality and normal recovery"};
 }
 function setsFor(e,w){
-  if(w===4&&e.tier!=="prep"&&!e.budget)return Math.max(1,Math.round(e.sets*0.6));
+  if(w===4&&S.reducedWeek4!==false&&e.tier!=="prep"&&!e.budget)return Math.max(1,Math.round(e.sets*0.6));
   return e.sets;
 }
-function repsFor(e,w){ return w===4&&e.budget?Math.max(1,Math.round(e.reps*0.6)):e.reps; }
+function repsFor(e,w){ return w===4&&S.reducedWeek4!==false&&e.budget?Math.max(1,Math.round(e.reps*0.6)):e.reps; }
+function setWeek4Reduced(reduced){ S.reducedWeek4=!!reduced; commit(); }
+function week4Control(w){
+  if(w!==4)return "";
+  const reduced=S.reducedWeek4!==false;
+  return '<div class="lbl">Week 4 targets</div><div class="acts">'+
+    '<button class="btn '+(reduced?'':'ghost')+'" aria-pressed="'+reduced+'" onclick="setWeek4Reduced(true)">Reduced</button>'+
+    '<button class="btn '+(reduced?'ghost':'')+'" aria-pressed="'+(!reduced)+'" onclick="setWeek4Reduced(false)">Normal</button></div>'+
+    '<div class="note">Choose for fatigue and actual training frequency, not the calendar alone. This saved choice sets week-4 targets in Train and backfill. Logged values stay unchanged. Take rest when needed; no catch-up work.</div>';
+}
 const unitOf=e=>e.unit==="reps"?"":e.unit;
 const sess=()=>S.plan.find(s=>s.id===S.today.sid)||S.plan[0];
 const cycle=()=>S.plan.filter(s=>!s.testOnly);
@@ -793,7 +836,8 @@ function viewBfExercises(sid,wk){
     h+='<div class="bfEx"><div class="exTop"><div class="bfExN">'+esc(e.n)+(e.optional?' · optional':'')+'</div><div class="bfExT">'+
        (e.amrap?"record actual":e.budget?tgt+"min total incl. rest":cnt+" × "+(e.cap?"up to ":"")+tgt+unitOf(e))+'</div></div>';
     h+='<div class="chips">';
-    for(let i=0;i<cnt;i++){
+    for(let i=0;i<Math.max(cnt,log.length);i++){
+      if(i>=cnt&&log[i]==null)continue; // Keep completed values visible when reduced targets hide unlogged sets.
       const v=log[i], on=v!=null;
       h+='<button class="chip'+(on?" on":"")+'" onclick="bfLogSet(\''+e.id+'\','+i+','+tgt+')">'+(on?v+unitOf(e):tgt+unitOf(e))+'</button>';
     }
@@ -978,7 +1022,7 @@ function applyBackup(text){
   if(!confirm("Replace everything currently stored with this backup?"))return;
   const fromVersion=Number(p.planVersion||1);
   stopTimer(); clearHold(); bfClearHold(); bfLog={}; bfResetForm();
-  S=migrate(Object.assign(blank(),p),fromVersion,p.riceRestoreVersion||0); storageBlocked=false;
+  S=migrate(Object.assign(blank(),p),fromVersion,p.riceRestoreVersion||0,p.handstandPracticeVersion||0); storageBlocked=false;
   historyMode="recent"; historyMonth=""; historySession=""; historyPage=0; openHist=-1; commit();
   toast("Restored");
 }
@@ -1033,7 +1077,7 @@ function render(){
      '</div>';
 
   if(storageBlocked)h+='<div class="note">Stored data could not be read. It has not been overwritten. Export or recover the original browser data before logging here.</div>';
-  if(S.planVersion<PLAN_VERSION)h+='<div class="sec">Revised routine available</div><div class="note">Front lever first on pull days; HSPU singles and focused balance practice. Your current plan stays until you switch. Switching saves its edits and unfinished log in Data, keeps history and maxes, and starts week 1.</div><button class="btn" onclick="resetPlan()">Use revised routine</button>';
+  if(S.planVersion<PLAN_VERSION)h+='<div class="sec">Revised routine available</div><div class="note">Front lever leads the pulling work; brief easy handstand practice on A/C, HSPU singles and focused D balance practice. Your current plan stays until you switch. Switching saves its edits and unfinished log in Data, keeps history and maxes, and starts week 1.</div><button class="btn" onclick="resetPlan()">Use revised routine</button>';
   if(tab==="train")h+=viewTrain(ph);
   if(tab==="progress")h+=viewProgress();
   if(tab==="edit")h+=viewEdit();
@@ -1047,7 +1091,7 @@ function viewTrain(ph){
   const s=sess(), nid=nextId();
   let h='<div class="lbl">Block week · tap to change</div><div class="weeks">';
   for(let w=1;w<=8;w++)h+='<button class="wk'+(S.week===w?" on":"")+(w===4||w===8?" mark2":"")+'" onclick="pickWeek('+w+')">'+w+'</button>';
-  h+='</div><div class="note">'+ph.d+'.</div>';
+  h+='</div><div class="note">'+ph.d+'.</div>'+week4Control(S.week);
 
   h+='<div class="sessions">';
   S.plan.forEach(p=>{
@@ -1080,7 +1124,8 @@ function viewTrain(ph){
     if(e.progression)h+='<details class="exNote"><summary>When to progress</summary>'+esc(e.progression)+'</details>';
     if(e.optional)h+='<div class="exNote">Skip freely; no log is needed to finish the session.</div>';
     h+='<div class="chips">';
-    for(let i=0;i<cnt;i++){
+    for(let i=0;i<Math.max(cnt,log.length);i++){
+      if(i>=cnt&&log[i]==null)continue; // Keep completed values visible when reduced targets hide unlogged sets.
       const v=log[i], on=v!=null;
       h+='<button class="chip'+(on?" on":"")+'" onclick="logSet(\''+e.id+'\','+i+','+tgt+')">'+(on?v+unitOf(e):tgt+unitOf(e))+'</button>';
     }
@@ -1182,7 +1227,7 @@ function viewProgress(){
      '<div class="field"><label>Session</label><select id="bfSess" onchange="setBfSess(this.value)">'+
        S.plan.map(p=>'<option value="'+p.id+'"'+(p.id===bfSid?" selected":"")+'>'+p.id+' · '+esc(p.name)+'</option>').join("")+'</select></div>'+
      '<div class="field"><label>Week</label><input id="bfWeek" type="number" step="1" inputmode="numeric" value="'+bfw+'" onchange="setBfWeek(parseInt(this.value,10)||'+S.week+')"></div>'+
-     viewBfExercises(bfSid,bfw)+
+     week4Control(bfw)+viewBfExercises(bfSid,bfw)+
      '<div class="bfSub">Or totals only</div>'+
      '<div class="field"><label>Reps</label><input id="bfReps" type="number" step="1" inputmode="numeric" placeholder="0" value="'+esc(bfReps)+'" oninput="bfSet(\'reps\',this.value)">'+
      '<label style="width:40px">Secs</label><input id="bfSecs" type="number" step="1" inputmode="numeric" placeholder="0" value="'+esc(bfSecs)+'" oninput="bfSet(\'secs\',this.value)"></div>'+
@@ -1230,7 +1275,7 @@ function viewEdit(){
   });
   h+='<div class="acts"><button class="btn" onclick="addEx(\''+s.id+'\')">Add exercise</button>'+
      '<button class="btn ghost" onclick="resetPlan()">Use revised defaults</button></div>';
-  h+='<div class="note">Targets stay stable across weeks. Week 4 reduces working sets and timed practice budgets. Use the exercise guidance to progress manually; tier never adds work automatically. Rest is in seconds. Using revised defaults archives your current plan and unfinished log in Data.</div>';
+  h+='<div class="note">Targets stay stable across weeks. Week 4 offers reduced or normal targets in Train. Use the exercise guidance to progress manually; tier never adds work automatically. Rest is in seconds. Using revised defaults archives your current plan and unfinished log in Data.</div>';
   return h;
 }
 
