@@ -170,7 +170,7 @@ const DEFAULT_PLAN = [
         "unit": "min",
         "rest": 0,
         "budget": true,
-        "note": "Straddle handstand: shift to fingertips on one side, back to centre, then the other side. Keep it easy; stop if it tires you before the lever.",
+        "note": "Straddle handstand: shift to fingertips on one side, back to centre, then the other side. Finish with two short fingertip holds per side. Keep it easy; stop if it tires you before the lever.",
         "progression": "Can grow toward 5 min total if it stays easy. Free-hand lifts belong on D."
       },
       {
@@ -233,7 +233,7 @@ const DEFAULT_PLAN = [
         "unit": "reps",
         "rest": 180,
         "note": "Clean singles, about 3 min apart. Stop before a grind or losing balance.",
-        "progression": "When five singles feel easy for two sessions, try a double in one set if a clean rep would remain. Keep the rest as singles."
+        "progression": "Ladder: 5×1 → one set of 2 → two sets of 2 → … → 5×2. Step up after a session where every single was clean and the shoulder stayed quiet; keep the other sets as singles."
       },
       {
         "id": "b4free",
@@ -271,6 +271,17 @@ const DEFAULT_PLAN = [
         "progression": "When all sets feel easy, add a rep or two to one set. At 3 × 15, move to a harder variation."
       },
       {
+        "id": "b12er",
+        "n": "Band external rotations",
+        "tier": "accessory",
+        "sets": 2,
+        "reps": 15,
+        "unit": "reps",
+        "rest": 45,
+        "note": "Elbow at your side, slow, no shrugging. Light band.",
+        "progression": "Build toward 2 × 20 before a heavier band."
+      },
+      {
         "id": "b7",
         "n": "Rice bag wrists",
         "tier": "prep",
@@ -284,7 +295,7 @@ const DEFAULT_PLAN = [
   {
     "id": "C",
     "name": "Pull volume / lever",
-    "note": "Keep the shift practice easy so front lever gets your fresh effort. Human flag stays paused.",
+    "note": "Keep the shift practice easy so front lever gets your fresh effort. The light lean at the end is conditioning. Human flag stays paused.",
     "ex": [
       {
         "id": "c1",
@@ -305,7 +316,7 @@ const DEFAULT_PLAN = [
         "unit": "min",
         "rest": 0,
         "budget": true,
-        "note": "Straddle handstand: shift to fingertips on one side, back to centre, then the other side. Keep it easy; stop if it tires you before the lever.",
+        "note": "Straddle handstand: shift to fingertips on one side, back to centre, then the other side. Finish with two short fingertip holds per side. Keep it easy; stop if it tires you before the lever.",
         "progression": "Can grow toward 5 min total if it stays easy. Free-hand lifts belong on D."
       },
       {
@@ -341,13 +352,25 @@ const DEFAULT_PLAN = [
         "rest": 90,
         "note": "No swinging.",
         "progression": "Build to 3 × 8 before a harder variation."
+      },
+      {
+        "id": "c10lean",
+        "n": "Planche lean (light)",
+        "tier": "accessory",
+        "sets": 3,
+        "reps": 10,
+        "unit": "s",
+        "rest": 60,
+        "cap": true,
+        "note": "Moderate depth, well short of your D lean. Straight arms, shoulders pushed away from the floor. Conditioning, not a max.",
+        "progression": "Keep it moderate. Go a little deeper only after the D lean has moved deeper."
       }
     ]
   },
   {
     "id": "D",
     "name": "OAHS / planche",
-    "note": "One-arm handstand prep first while fresh, then HSPU singles and the planche lean. No long max holds.",
+    "note": "OAHS first while fresh, then planche. Planche goes slowly on purpose: any ache at the front of the elbow or shoulder means a step back for a week.",
     "ex": [
       {
         "id": "d1",
@@ -357,30 +380,43 @@ const DEFAULT_PLAN = [
         "reps": 5,
         "unit": "min",
         "rest": 0,
-        "note": "Wrist rocks, scap push ups, a few easy handstand entries."
+        "note": "Wrist rocks, scap push ups, lean rocks, a few easy handstand entries."
       },
       {
         "id": "d8shifts",
         "n": "OAHS straddle shifts",
         "tier": "skill",
         "sets": 1,
-        "reps": 5,
+        "reps": 3,
         "unit": "min",
         "rest": 0,
         "note": "One-arm prep. In a straddle handstand, shift to fingertips on one side for a few seconds, back to centre, then the other side. Come down and rest between efforts.",
-        "progression": "Keep shifts quiet and controlled, then grow the window toward 8 min. Once fingertip shifts are steady, try brief free-hand lifts of 1–2s. No long one-arm holds.",
+        "progression": "Keep shifts quiet and controlled. The window can grow toward 5 min if the planche work stays fresh.",
         "budget": true
       },
       {
-        "id": "d10hspu",
-        "n": "Freestanding HSPU",
-        "tier": "main",
+        "id": "d11finger",
+        "n": "Fingertip hold",
+        "tier": "skill",
         "sets": 3,
-        "reps": 1,
-        "unit": "reps",
-        "rest": 180,
-        "note": "Clean singles, about 3 min apart, after the OAHS work. Stop before a grind or losing balance.",
-        "progression": "Progress HSPU on B first; keep these as clean singles."
+        "reps": 5,
+        "unit": "s",
+        "rest": 60,
+        "cap": true,
+        "note": "Each side: weight on one arm, the other hand on its fingertips. Log the weaker side. Stop when you sag or wobble off.",
+        "progression": "Add 1s per hold after each clean session, up to 3 × 10s, then build to about 15s on the weaker side. Only then add brief free-hand lifts of 1–2s. No long one-arm holds."
+      },
+      {
+        "id": "d12tuck",
+        "n": "Tuck planche",
+        "tier": "main",
+        "sets": 4,
+        "reps": 5,
+        "unit": "s",
+        "rest": 120,
+        "cap": true,
+        "note": "Straight arms, shoulders forward of the hands, back rounded. Stop when hips drop or elbows bend. Fix the chip to your actual seconds.",
+        "progression": "Slow on purpose. After two clean sessions with no elbow or shoulder ache, add 1s to some holds, then all, up to 4 × 8s. Then flatten the back (hips to shoulder height) at 5s, then advanced tuck at 3s. Any ache at the front of the elbow or shoulder: drop back a step for a week."
       },
       {
         "id": "d9lean",
@@ -390,9 +426,32 @@ const DEFAULT_PLAN = [
         "reps": 5,
         "unit": "s",
         "rest": 90,
-        "note": "Small lean, feet down, straight arms. Stop if it gets uncomfortable.",
+        "note": "Pick a depth you can measure (for example, shoulders a set distance past the wrists) and keep it the same. Straight arms, shoulders pushed away from the floor.",
         "cap": true,
-        "progression": "Build from 5 to 8s holds, then lean a little further and shorten them again."
+        "progression": "Build from 5 to 8s at the same depth. After two clean sessions at 8s, go slightly deeper and drop back to 5s."
+      },
+      {
+        "id": "d13support",
+        "n": "Support hold on dip bars",
+        "tier": "accessory",
+        "sets": 3,
+        "reps": 20,
+        "unit": "s",
+        "rest": 60,
+        "cap": true,
+        "note": "Arms locked, shoulders pushed down away from the ears, body still. Parallettes or a sturdy bar work too.",
+        "progression": "Build to 3 × 30s, then lean slightly forward."
+      },
+      {
+        "id": "d14er",
+        "n": "Band external rotations",
+        "tier": "accessory",
+        "sets": 2,
+        "reps": 15,
+        "unit": "reps",
+        "rest": 45,
+        "note": "Elbow at your side, slow, no shrugging. Light band.",
+        "progression": "Build toward 2 × 20 before a heavier band."
       },
       {
         "id": "d7",
@@ -420,6 +479,32 @@ const DEFAULT_PLAN = [
         "unit": "min",
         "rest": 0,
         "note": "Build up to your chosen benchmark without tiring yourself."
+      },
+      {
+        "id": "t7",
+        "n": "Max fingertip hold",
+        "tier": "main",
+        "sets": 1,
+        "reps": 5,
+        "unit": "s",
+        "rest": 300,
+        "note": "Weaker side. One clean hold; stop when you sag or wobble off.",
+        "amrap": true,
+        "optional": true,
+        "pr": "fingertip"
+      },
+      {
+        "id": "t8",
+        "n": "Max tuck planche",
+        "tier": "main",
+        "sets": 1,
+        "reps": 5,
+        "unit": "s",
+        "rest": 300,
+        "note": "One clean hold; stop when hips drop or elbows bend.",
+        "amrap": true,
+        "optional": true,
+        "pr": "planche"
       },
       {
         "id": "t3",
@@ -517,7 +602,7 @@ function addHandstandPractice(plan){
   if(hspu&&hspu.progression===HSPU_PROGRESS_BEFORE)hspu.progression=HSPU_PROGRESS_NOW;
 }
 
-const PRS={pullup:["Pull ups",""],hspu:["HSPU",""],lever:["Tuck lever","s"],dip:["Dips",""],pushup:["Push ups",""]};
+const PRS={fingertip:["Fingertip hold","s"],planche:["Tuck planche","s"],pullup:["Pull ups",""],hspu:["HSPU",""],lever:["Tuck lever","s"],dip:["Dips",""],pushup:["Push ups",""]};
 const KEY="barlog.v1";
 const PLAN_VERSION=4;
 let storageBlocked=false;
@@ -568,7 +653,7 @@ function blank(){return{
   week:1, rot:0, alert:"vibrate",
   plan:JSON.parse(JSON.stringify(DEFAULT_PLAN)),
   today:{date:"",sid:"A",log:{},band:{},rice:false},
-  history:[], prs:{pullup:[],hspu:[],lever:[],dip:[],pushup:[]}
+  history:[], prs:{fingertip:[],planche:[],pullup:[],hspu:[],lever:[],dip:[],pushup:[]}
 };}
 
 // Restore only the omitted rice preparation in already-adopted v4 plans, once.
@@ -583,12 +668,23 @@ function restoreRiceWork(plan){
     session.ex.push({id:newId,n:"Rice bag wrists",tier:"prep",sets:1,reps:5,unit:"min",rest:0});
   }
 }
-// September 24 pressing rebalance for a saved v4 plan: add the new work in its default
-// position (skipping anything that already looks present), and move dips off D by
-// removing D's dips only while they are still the untouched default.
-const PRESS_ADDITIONS=[["B","b10dips",/\bdips?\b/i],["B","b11push",/push\s*-?\s*ups?/i],["D","d10hspu",/hspu|handstand push/i]];
-function addPressWork(plan){
-  for(const [sid,id,present] of PRESS_ADDITIONS){
+// September 24 rebalance for a saved v4 plan. New work goes in its default position,
+// skipping anything that already looks present. Doses and removals only touch items
+// that are still the untouched default, so personal edits are kept.
+const REBALANCE_ADDITIONS=[
+  ["B","b10dips",/\bdips?\b/i],["B","b11push",/push\s*-?\s*ups?/i],["B","b12er",/external rot/i],
+  ["C","c10lean",/lean|planche/i],
+  ["D","d11finger",/fingertip/i],["D","d12tuck",/tuck planche/i],["D","d13support",/support/i],["D","d14er",/external rot/i],
+  ["T","t7",/fingertip/i],["T","t8",/planche/i]];
+const isDefaultDips=e=>e.id==="d3"&&e.n==="Dips"&&e.sets===2&&e.reps===5&&e.unit==="reps"&&e.rest===120&&e.optional===true;
+function rebalancePlan(plan){
+  const d=plan.find(p=>p.id==="D");
+  if(d){
+    d.ex=d.ex.filter(e=>!isDefaultDips(e));
+    const shifts=d.ex.find(e=>e.id==="d8shifts"&&e.budget&&e.unit==="min"&&e.reps===5);
+    if(shifts)shifts.reps=3; // shorter window now that fingertip holds and planche follow
+  }
+  for(const [sid,id,present] of REBALANCE_ADDITIONS){
     const session=plan.find(p=>p.id===sid), def=DEFAULT_PLAN.find(p=>p.id===sid);
     if(!session||session.ex.some(e=>e.id===id||present.test(e.n||"")))continue;
     const ex=JSON.parse(JSON.stringify(def.ex.find(e=>e.id===id)));
@@ -604,8 +700,6 @@ function addPressWork(plan){
     }
     session.ex.splice(at,0,ex);
   }
-  const d=plan.find(p=>p.id==="D");
-  if(d)d.ex=d.ex.filter(e=>!(e.id==="d3"&&e.n==="Dips"&&e.sets===2&&e.reps===5&&e.unit==="reps"&&e.rest===120&&e.optional===true));
 }
 // One-time repairs for saved plans, applied in order. Each stores its key once it has run,
 // so later deliberate edits stick. v4Only patches leave older, unadopted routines alone.
@@ -613,7 +707,7 @@ const PLAN_PATCHES=[
   {key:"riceRestoreVersion",v4Only:true,apply:restoreRiceWork},
   {key:"handstandPracticeVersion",v4Only:true,apply:addHandstandPractice},
   {key:"notesVersion",v4Only:false,apply:trimNotes},
-  {key:"pressWorkVersion",v4Only:true,apply:addPressWork},
+  {key:"rebalanceVersion",v4Only:true,apply:rebalancePlan},
 ];
 function patchFlags(value){ return Object.fromEntries(PLAN_PATCHES.map(p=>[p.key,value(p.key)])); }
 // `saved` is the stored record (state, backup or archive) whose flags say what already ran.
