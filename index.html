@@ -395,18 +395,6 @@ const DEFAULT_PLAN = [
         "progression": "Build from 5 to 8s holds, then lean a little further and shorten them again."
       },
       {
-        "id": "d3",
-        "n": "Dips",
-        "tier": "main",
-        "sets": 2,
-        "reps": 5,
-        "unit": "reps",
-        "rest": 120,
-        "note": "Keep reps in reserve. Skip if your shoulders feel off after the earlier work.",
-        "optional": true,
-        "progression": "When both sets feel easy, add a rep to one set."
-      },
-      {
         "id": "d7",
         "n": "Rice bag wrists",
         "tier": "prep",
@@ -590,8 +578,9 @@ function restoreRiceWork(plan){
     session.ex.push({id:newId,n:"Rice bag wrists",tier:"prep",sets:1,reps:5,unit:"min",rest:0});
   }
 }
-// Add the September 24 pressing work to a saved v4 plan, in its default position.
-// Anything that already looks present is left alone rather than duplicated.
+// September 24 pressing rebalance for a saved v4 plan: add the new work in its default
+// position (skipping anything that already looks present), and move dips off D by
+// removing D's dips only while they are still the untouched default.
 const PRESS_ADDITIONS=[["B","b10dips",/\bdips?\b/i],["B","b11push",/push\s*-?\s*ups?/i],["D","d10hspu",/hspu|handstand push/i]];
 function addPressWork(plan){
   for(const [sid,id,present] of PRESS_ADDITIONS){
@@ -610,6 +599,8 @@ function addPressWork(plan){
     }
     session.ex.splice(at,0,ex);
   }
+  const d=plan.find(p=>p.id==="D");
+  if(d)d.ex=d.ex.filter(e=>!(e.id==="d3"&&e.n==="Dips"&&e.sets===2&&e.reps===5&&e.unit==="reps"&&e.rest===120&&e.optional===true));
 }
 // One-time repairs for saved plans, applied in order. Each stores its key once it has run,
 // so later deliberate edits stick. v4Only patches leave older, unadopted routines alone.

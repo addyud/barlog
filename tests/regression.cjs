@@ -166,18 +166,20 @@ test('saved plans get the shorter notes once; personal edits, doses and records 
 test('pressing additions: default order, week-4 reduction, and a one-time conservative update for saved plans',()=>{
  run('S=blank()');
  assert.deepEqual(json(`S.plan[1].ex.map(e=>e.id)`),['b1','b3','b4free','b10dips','b11push','b7']);
- assert.deepEqual(json(`S.plan[3].ex.map(e=>e.id)`),['d1','d10hspu','d8shifts','d9lean','d3','d7']);
+ assert.deepEqual(json(`S.plan[3].ex.map(e=>e.id)`),['d1','d10hspu','d8shifts','d9lean','d7']);
  assert.ok(run(`S.plan[1].ex.find(e=>e.id==='b10dips').optional`));assert.ok(!run(`S.plan[1].ex.find(e=>e.id==='b11push').optional`));
  for(const id of ['b10dips','b11push','d10hspu'])assert.equal(run(`setsFor(DEFAULT_PLAN.flatMap(p=>p.ex).find(e=>e.id==='${id}'),4)`),2);
  // A saved v4 plan from before the additions, with a personal edit and an unfinished log.
- const strip=`S=blank();delete S.pressWorkVersion;S.plan[1].ex=S.plan[1].ex.filter(e=>!['b10dips','b11push'].includes(e.id));S.plan[3].ex=S.plan[3].ex.filter(e=>e.id!=='d10hspu');`;
+ const strip=`S=blank();delete S.pressWorkVersion;S.plan[3].ex.splice(4,0,{id:'d3',n:'Dips',tier:'main',sets:2,reps:5,unit:'reps',rest:120,optional:true});S.plan[1].ex=S.plan[1].ex.filter(e=>!['b10dips','b11push'].includes(e.id));S.plan[3].ex=S.plan[3].ex.filter(e=>e.id!=='d10hspu');`;
  run(strip+`S.plan[1].ex.find(e=>e.id==='b3').sets=4;S.today={date:'2026-09-24',sid:'B',log:{b3:[1,1]},band:{},rice:false};S.history=[{date:'2026-09-20',sid:'B',detail:[{n:'Dips',unit:'reps',sets:[6,6]}]}];S.rot=5;save()`);
  const before=json('S');run('load()');
  assert.deepEqual(json(`S.plan[1].ex.map(e=>e.id)`),['b1','b3','b4free','b10dips','b11push','b7']);
- assert.deepEqual(json(`S.plan[3].ex.map(e=>e.id)`),['d1','d10hspu','d8shifts','d9lean','d3','d7']);
+ assert.deepEqual(json(`S.plan[3].ex.map(e=>e.id)`),['d1','d10hspu','d8shifts','d9lean','d7']);
  assert.equal(run(`S.plan[1].ex.find(e=>e.id==='b3').sets`),4,'personal dose kept');
  for(const key of ['today','history','rot','week','prs'])assert.deepEqual(json('S.'+key),before[key]);
  assert.ok(run(`viewLast('B',S.plan[1].ex.find(e=>e.id==='b10dips'))`).includes('6, 6'),'earlier B dips show as last results');
+ run(strip+`S.plan[3].ex.splice(4,0,{id:'d3',n:'Dips',tier:'main',sets:3,reps:5,unit:'reps',rest:120,optional:true});save();load()`);
+ assert.ok(run(`S.plan[3].ex.some(e=>e.id==='d3')`),'personally edited D dips are kept');
  run(`S.plan[1].ex=S.plan[1].ex.filter(e=>e.id!=='b10dips');save();load()`);
  assert.ok(!run(`S.plan[1].ex.some(e=>e.id==='b10dips')`),'later deletion stays deleted');
  // Manual equivalents are not duplicated; ID collisions get a new ID; custom order falls back to the end.
