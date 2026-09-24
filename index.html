@@ -35,7 +35,7 @@ button{font-family:inherit}
 .mark span{color:var(--sodium)}
 .meta{font-family:var(--mono);font-size:10px;letter-spacing:.13em;text-transform:uppercase;color:var(--galv);text-align:right;line-height:1.6}
 .meta b{color:var(--sodium);font-weight:600}
-.alertbtn{margin-top:5px;background:none;border:1px solid var(--steel-hi);border-radius:2px;padding:3px 7px;font-family:var(--mono);font-size:9px;letter-spacing:.1em;text-transform:uppercase;color:var(--galv)}
+.alertbtn{margin-top:5px;background:none;border:1px solid var(--steel-hi);border-radius:2px;padding:3px 7px;font-family:var(--mono);font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--galv)}
 .alertbtn:active{border-color:var(--sodium);color:var(--sodium)}
 
 .tabs{display:flex;gap:2px;margin:13px 0 0}
@@ -57,7 +57,7 @@ button{font-family:inherit}
 .sess.on{background:var(--steel-hi);border-color:var(--sodium)}
 .sessL{font-family:var(--disp);font-weight:700;font-size:22px;line-height:1;color:var(--chalk)}
 .sess.on .sessL{color:var(--sodium)}
-.sessN{font-family:var(--mono);font-size:8px;letter-spacing:.04em;text-transform:uppercase;color:var(--galv);text-align:center;line-height:1.3}
+.sessN{font-family:var(--mono);font-size:9px;letter-spacing:.04em;text-transform:uppercase;color:var(--galv);text-align:center;line-height:1.3}
 .dot{position:absolute;top:-5px;right:-5px;width:7px;height:7px;border-radius:50%;background:var(--sodium)}
 
 .daily{margin:16px 0 2px;padding:11px 13px;background:var(--steel);border-left:2px solid var(--sodium-dim);border-radius:2px;display:flex;align-items:center;gap:11px}
@@ -70,8 +70,10 @@ button{font-family:inherit}
 .ex{padding:17px 0 15px;border-bottom:1px solid var(--steel)}
 .exTop{display:flex;align-items:baseline;justify-content:space-between;gap:10px}
 .exN{font-family:var(--disp);font-weight:600;font-size:19px;line-height:1.15}
-.exT{font-family:var(--mono);font-size:9px;letter-spacing:.1em;text-transform:uppercase;color:var(--galv);white-space:nowrap}
+.exT{font-family:var(--mono);font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--galv);white-space:nowrap}
 .exNote{font-size:12px;color:var(--galv);margin-top:4px;line-height:1.45}
+.exLast{font-family:var(--mono);font-size:12px;color:var(--chalk);margin-top:6px;line-height:1.55}
+.exLast span{color:var(--galv)}
 .exLoad{font-size:12px;color:var(--sodium);margin-top:4px;line-height:1.45}
 .chips{display:flex;flex-wrap:wrap;gap:6px;margin-top:11px}
 .chip{min-width:48px;height:42px;padding:0 10px;background:var(--steel);border:1px solid var(--steel-hi);border-radius:3px;color:var(--galv);font-family:var(--mono);font-size:14px}
@@ -111,9 +113,9 @@ button{font-family:inherit}
 .prRow{display:flex;align-items:center;gap:10px;margin-top:10px}
 .spark{flex:1;height:34px}
 .hist{padding:12px 0;border-bottom:1px solid var(--steel);display:flex;gap:12px;align-items:baseline}
-.histD{font-family:var(--mono);font-size:11px;color:var(--galv);min-width:56px}
+.histD{font-family:var(--mono);font-size:10px;color:var(--galv);min-width:76px}
 .histS{font-family:var(--disp);font-weight:600;font-size:16px;min-width:20px}
-.histX{font-size:12px;color:var(--galv);flex:1}
+.histX{font-size:12px;color:var(--galv);flex:1;min-width:0;overflow-wrap:anywhere}
 
 .field{display:flex;align-items:center;gap:8px;margin-top:8px}
 .field label{font-family:var(--mono);font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:var(--galv);width:52px;flex-shrink:0}
@@ -130,11 +132,9 @@ textarea.dump{width:100%;height:150px;background:var(--steel);border:1px solid v
 .bfEx:last-child{border-bottom:none;padding-bottom:0}
 .bfEx .chips{margin-top:8px}
 .bfExN{font-size:13px;color:var(--chalk);line-height:1.3}
-.bfExT{font-family:var(--mono);font-size:9px;letter-spacing:.08em;text-transform:uppercase;color:var(--galv);margin-top:3px}
+.bfExT{font-family:var(--mono);font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:var(--galv);margin-top:3px}
 .bfSub{font-family:var(--mono);font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--galv);margin:14px 0 8px;display:flex;align-items:center;justify-content:space-between;gap:8px}
 .bfTotals{font-family:var(--mono);font-size:11px;color:var(--sodium);margin-top:10px;padding-top:10px;border-top:1px solid var(--steel-hi);line-height:1.5}
-.histD{min-width:76px;font-size:10px}
-.histX{min-width:0;overflow-wrap:anywhere}
 </style>
 </head>
 <body>
@@ -150,7 +150,7 @@ const DEFAULT_PLAN = [
   {
     "id": "A",
     "name": "Pull / front lever",
-    "note": "Front lever first. Explosive pulls support the muscle-up goal; full muscle-up attempts are paused while the turnover limitation remains unclear.",
+    "note": "Brief easy handstand practice after warmup, then front lever as the main fresh pulling focus. Stop the balance practice before fatigue; explosive pulls support the muscle-up goal.",
     "ex": [
       {
         "id": "a1",
@@ -161,6 +161,18 @@ const DEFAULT_PLAN = [
         "unit": "min",
         "rest": 0,
         "note": "Easy hangs, scapular pulls and comfortable shoulder and wrist movement. Gradually rehearse the first exercise."
+      },
+      {
+        "id": "a9balance",
+        "n": "Easy two-arm handstand practice",
+        "tier": "skill",
+        "sets": 1,
+        "reps": 3,
+        "unit": "min",
+        "rest": 0,
+        "budget": true,
+        "note": "3 minutes TOTAL including rests. Short controlled freestanding balance/alignment practice and comfortable straddle transitions, with BOTH HANDS supported. Keep it easy: no maximal-duration holds or one-arm attempts. Shorten or skip if it starts to tire you before front lever.",
+        "progression": "May build toward 5 minutes total only if quality stays easy and recovery permits. This is practice time, not continuous hold time. D remains the dedicated one-arm-preparation session."
       },
       {
         "id": "a8",
@@ -222,7 +234,7 @@ const DEFAULT_PLAN = [
         "unit": "reps",
         "rest": 180,
         "note": "Five repeatable clean singles, about 3 minutes apart. Stop before grinding or losing balance; reduce sets if singles stop being repeatable.",
-        "progression": "After two repeatable, well-recovered exposures, try 2 reps in just one set if a clean rep would remain. Keep the other sets as singles and reassess before expanding doubles."
+        "progression": "When five singles are consistently comfortable and recovery is good, targeted HSPU work is the next candidate for a small manual increase. After two such exposures, try 2 reps in just one set only if a clean rep would remain; keep other sets as singles. No automatic increase or added general pressing."
       },
       {
         "id": "b4free",
@@ -235,13 +247,22 @@ const DEFAULT_PLAN = [
         "note": "Optional: 0–2 clean singles on the available bars, only with clear strength and balance reserve after ordinary HSPUs. Omit if fatigued. No wall or leg support.",
         "optional": true,
         "progression": "Harder range work, not backoff sets. Keep a repeatable depth and reserve. Increase depth or reps only after controlled exposures and normal recovery, without also raising ordinary HSPU load."
+      },
+      {
+        "id": "b7",
+        "n": "Rice bag wrists",
+        "tier": "prep",
+        "sets": 1,
+        "reps": 5,
+        "unit": "min",
+        "rest": 0
       }
     ]
   },
   {
     "id": "C",
     "name": "Pull volume / lever",
-    "note": "Front lever remains the primary pull skill. Human flag is paused initially; reassess a small exposure once recovery across the rotation is reliable.",
+    "note": "Brief easy handstand practice after warmup, then front lever as the main fresh pulling focus. Keep the practice short enough to leave the lever fresh. Human flag remains paused initially.",
     "ex": [
       {
         "id": "c1",
@@ -252,6 +273,18 @@ const DEFAULT_PLAN = [
         "unit": "min",
         "rest": 0,
         "note": "Easy hangs, scapular pulls and comfortable shoulder movement. Rehearse the tuck hold without fatigue."
+      },
+      {
+        "id": "c9balance",
+        "n": "Easy two-arm handstand practice",
+        "tier": "skill",
+        "sets": 1,
+        "reps": 3,
+        "unit": "min",
+        "rest": 0,
+        "budget": true,
+        "note": "3 minutes TOTAL including rests. Short controlled freestanding balance/alignment practice and comfortable straddle transitions, with BOTH HANDS supported. Keep it easy: no maximal-duration holds or one-arm attempts. Shorten or skip if it starts to tire you before front lever.",
+        "progression": "May build toward 5 minutes total only if quality stays easy and recovery permits. This is practice time, not continuous hold time. D remains the dedicated one-arm-preparation session."
       },
       {
         "id": "c8",
@@ -339,6 +372,15 @@ const DEFAULT_PLAN = [
         "note": "Two comfortable sets with reps in reserve, on this day only. Reduce or omit if the preceding shoulder work leaves them uncomfortable or unsteady.",
         "optional": true,
         "progression": "Once both sets are easy to repeat and recovery is normal, add one rep to one set. Keep dips secondary to balance, HSPU and planche practice."
+      },
+      {
+        "id": "d7",
+        "n": "Rice bag wrists",
+        "tier": "prep",
+        "sets": 1,
+        "reps": 5,
+        "unit": "min",
+        "rest": 0
       }
     ]
   },
@@ -409,6 +451,7 @@ const PULL_NOTES={
 };
 const HSPU_PROGRESS_BEFORE="After two repeatable, well-recovered exposures, try 2 reps in just one set if a clean rep would remain. Keep the other sets as singles and reassess before expanding doubles.";
 const HSPU_PROGRESS_NOW="When five singles are consistently comfortable and recovery is good, targeted HSPU work is the next candidate for a small manual increase. After two such exposures, try 2 reps in just one set only if a clean rep would remain; keep other sets as singles. No automatic increase or added general pressing.";
+// Repairs saved v4 plans from before the A/C handstand block. DEFAULT_PLAN already includes it.
 function addHandstandPractice(plan){
   for(const sid of ["A","C"]){
     const session=plan.find(p=>p.id===sid); if(!session)continue;
@@ -428,12 +471,6 @@ function addHandstandPractice(plan){
   const hspu=plan.find(p=>p.id==="B")?.ex.find(e=>e.id==="b3");
   if(hspu&&hspu.progression===HSPU_PROGRESS_BEFORE)hspu.progression=HSPU_PROGRESS_NOW;
 }
-addHandstandPractice(DEFAULT_PLAN);
-
-// Retain the original rice-bag preparation rows and their logging IDs.
-for(const [sid,id] of [["B","b7"],["D","d7"]]){
-  DEFAULT_PLAN.find(p=>p.id===sid).ex.push({id,n:"Rice bag wrists",tier:"prep",sets:1,reps:5,unit:"min",rest:0});
-}
 
 const PRS={pullup:["Pull ups",""],hspu:["HSPU",""],lever:["Tuck lever","s"],dip:["Dips",""],pushup:["Push ups",""]};
 const KEY="barlog.v1";
@@ -445,6 +482,8 @@ let S=null, tab="train", timer=null, tick=null, ac=null, editSess="A", openHist=
 /* backfill form fields live here so a re-render (chip tap, hold tick, week change) can't reset them */
 let bfDate=null, bfReps="", bfSecs="", bfNote="", bfRice=false, bfAdv=null;
 let openPr=null;
+/* manual-max form fields, kept across re-renders like the backfill form */
+let mxLift="pullup", mxVal="", mxDate=null;
 let historyMode="recent", historyMonth="", historySession="", historyPage=0;
 const HISTORY_PAGE_SIZE=10;
 function browseHistory(browse){ historyMode=browse?"browse":"recent"; historyPage=0; openHist=-1; render(); }
@@ -638,6 +677,10 @@ function drawTimer(){
 
 /* ── hold stopwatch ── */
 let holdStart=null, holdEx=null, holdTick=null;
+function tickHoldLabel(id,start){
+  const el=document.getElementById(id);
+  if(el&&start)el.textContent="stop "+Math.round((Date.now()-start)/1000)+"s";
+}
 function toggleHold(exId){
   const e=sess().ex.find(x=>x.id===exId);
   if(holdEx===exId){
@@ -653,7 +696,8 @@ function toggleHold(exId){
   }else{
     holdEx=exId; holdStart=Date.now();
     if(holdTick)clearInterval(holdTick);
-    holdTick=setInterval(render,500);
+    // Update only the stopwatch label, so inputs elsewhere keep their text and focus.
+    holdTick=setInterval(()=>tickHoldLabel("holdBtn",holdStart),500);
     render();
   }
 }
@@ -690,7 +734,7 @@ function finish(){
     if(!vals.length)return;
     const sum=vals.reduce((a,b)=>a+b,0);
     if(e.unit==="reps")reps+=sum; else if(e.unit==="s")secs+=sum;
-    const item={n:e.n,unit:e.unit,sets:vals};
+    const item={id:e.id,n:e.n,unit:e.unit,sets:vals};
     const band=S.today.band&&S.today.band[e.id]&&S.today.band[e.id].trim();
     if(band)item.band=band;
     detail.push(item);
@@ -745,7 +789,7 @@ function buildBfDetail(sid){
   plan.ex.forEach(e=>{
     const vals=(bfLog[e.id]||[]).filter(v=>typeof v==="number");
     if(!vals.length)return;
-    detail.push({n:e.n,unit:e.unit,sets:vals});
+    detail.push({id:e.id,n:e.n,unit:e.unit,sets:vals});
   });
   return detail;
 }
@@ -775,7 +819,7 @@ function bfToggleHold(exId){
   }else{
     bfHoldEx=exId; bfHoldStart=Date.now();
     if(bfHoldTick)clearInterval(bfHoldTick);
-    bfHoldTick=setInterval(render,500);
+    bfHoldTick=setInterval(()=>tickHoldLabel("bfHoldBtn",bfHoldStart),500);
     render();
   }
 }
@@ -848,7 +892,7 @@ function viewBfExercises(sid,wk){
       if(e.unit==="s"){
         const running=bfHoldEx===e.id;
         const secs=running?Math.round((Date.now()-bfHoldStart)/1000):0;
-        h+='<button class="holdB" onclick="bfToggleHold(\''+e.id+'\')">'+(running?"stop "+secs+"s":"time a hold")+'</button>';
+        h+='<button class="holdB"'+(running?' id="bfHoldBtn"':'')+' onclick="bfToggleHold(\''+e.id+'\')">'+(running?"stop "+secs+"s":"time a hold")+'</button>';
       }
       h+='</div>';
     }
@@ -863,12 +907,11 @@ function viewBfExercises(sid,wk){
   return h+'</div>';
 }
 function addMax(){
-  const k=document.getElementById("mxLift").value;
-  const d=document.getElementById("mxDate").value||dayKey();
-  const v=parseInt(document.getElementById("mxVal").value,10);
+  const k=mxLift, d=mxDate||dayKey(), v=parseInt(mxVal,10);
   if(isNaN(v)||v<=0){ alert("Enter a number."); return; }
   S.prs[k]=(S.prs[k]||[]).concat([{date:d,value:v}]);
   S.prs[k].sort((a,b)=>a.date<b.date?-1:a.date>b.date?1:0);
+  mxVal=""; mxDate=null;
   commit();
 }
 function delHist(i){
@@ -1087,6 +1130,28 @@ function render(){
 }
 function go(t){ tab=t; render(); }
 
+// Most recent logged results for this exercise in this session, newest first.
+// Older records have no exercise ID, so they match on name and unit instead.
+function lastExposures(sid,e,max){
+  const out=[];
+  for(const {record:r} of historyRows()){
+    if(r.sid!==sid||!r.detail)continue;
+    const x=r.detail.find(d=>d.id?d.id===e.id:d.n===e.n&&d.unit===e.unit);
+    if(!x||!x.sets||!x.sets.length)continue;
+    out.push({date:String(r.date),x});
+    if(out.length>=max)break;
+  }
+  return out;
+}
+function viewLast(sid,e){
+  if(e.tier==="prep")return "";
+  const seen=lastExposures(sid,e,2);
+  if(!seen.length)return "";
+  return '<div class="exLast">'+seen.map(({date,x},i)=>
+    '<div><span>'+(i?"Before":"Last")+' '+esc(shortD(date))+'</span> '+esc(x.sets.join(", "))+esc(x.unit==="reps"?"":x.unit)+
+    (x.band?' <span>· band '+esc(x.band)+'</span>':'')+'</div>').join("")+'</div>';
+}
+
 function viewTrain(ph){
   const s=sess(), nid=nextId();
   let h='<div class="lbl">Block week · tap to change</div><div class="weeks">';
@@ -1116,6 +1181,7 @@ function viewTrain(ph){
     const done=log.filter(v=>v!=null).length;
     h+='<div class="ex"><div class="exTop"><div class="exN">'+esc(e.n)+(e.optional?' · optional':'')+'</div><div class="exT">'+
        (e.amrap?"record actual":e.budget?tgt+"min total incl. rest":cnt+" × "+(e.cap?"up to ":"")+tgt+unitOf(e))+(e.rest?" · "+mmss(e.rest)+" rest":"")+'</div></div>';
+    h+=viewLast(s.id,e);
     if(e.note)h+='<div class="exNote">'+esc(e.note)+'</div>';
     if(e.trackBand){
       const band=(S.today.band&&S.today.band[e.id])||"";
@@ -1136,7 +1202,7 @@ function viewTrain(ph){
       if(e.unit==="s"){
         const running=holdEx===e.id;
         const secs=running?Math.round((Date.now()-holdStart)/1000):0;
-        h+='<button class="holdB" onclick="toggleHold(\''+e.id+'\')">'+(running?"stop "+secs+"s":"time a hold")+'</button>';
+        h+='<button class="holdB"'+(running?' id="holdBtn"':'')+' onclick="toggleHold(\''+e.id+'\')">'+(running?"stop "+secs+"s":"time a hold")+'</button>';
       }
       h+='</div>';
     }
@@ -1213,10 +1279,10 @@ function viewProgress(){
   h+='<div class="note">Maxes fill in from an optional benchmark session, available in week 8. Existing records are kept; default targets are not personal records.</div>';
   h+='<div class="sec">Log a max by hand</div>'+
      '<div class="note">For a max you hit outside a Test day, or one you forgot to record.</div>'+
-     '<div class="field"><label>Lift</label><select id="mxLift">'+
-       Object.keys(PRS).map(k=>'<option value="'+k+'">'+PRS[k][0]+'</option>').join("")+'</select>'+
-     '<label style="width:38px">Value</label><input id="mxVal" type="number" step="1" inputmode="numeric" placeholder="0"></div>'+
-     '<div class="field"><label>Date</label><input id="mxDate" type="date" value="'+dayKey()+'"></div>'+
+     '<div class="field"><label>Lift</label><select id="mxLift" onchange="mxLift=this.value">'+
+       Object.keys(PRS).map(k=>'<option value="'+k+'"'+(k===mxLift?" selected":"")+'>'+PRS[k][0]+'</option>').join("")+'</select>'+
+     '<label style="width:38px">Value</label><input id="mxVal" type="number" step="1" inputmode="numeric" placeholder="0" value="'+esc(mxVal)+'" oninput="mxVal=this.value"></div>'+
+     '<div class="field"><label>Date</label><input id="mxDate" type="date" value="'+esc(mxDate||dayKey())+'" max="'+dayKey()+'" oninput="mxDate=this.value"></div>'+
      '<div class="acts"><button class="btn" onclick="addMax()">Add max</button></div>';
 
   const bfw=bfWeek==null?S.week:bfWeek;
@@ -1312,6 +1378,7 @@ bfSid=S.today.sid;
 save();
 render();
 checkPersist().then(()=>{ if(tab==="data")render(); });
+if(navigator.serviceWorker&&location.protocol!=="file:")navigator.serviceWorker.register("sw.js").catch(e=>console.error("offline cache unavailable",e));
 </script>
 </body>
 </html>
