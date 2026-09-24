@@ -149,7 +149,7 @@ const DEFAULT_PLAN = [
   {
     "id": "A",
     "name": "Pull / front lever",
-    "note": "Keep the handstand practice easy so front lever gets your fresh effort. Muscle-up attempts stay paused.",
+    "note": "Keep the shift practice easy so front lever gets your fresh effort. Muscle-up attempts stay paused.",
     "ex": [
       {
         "id": "a1",
@@ -163,15 +163,15 @@ const DEFAULT_PLAN = [
       },
       {
         "id": "a9balance",
-        "n": "Easy two-arm handstand practice",
+        "n": "OAHS shift practice",
         "tier": "skill",
         "sets": 1,
         "reps": 3,
         "unit": "min",
         "rest": 0,
         "budget": true,
-        "note": "Short two-arm holds and straddle transitions, both hands down. No max holds or one-arm work. Cut it short if it tires you before the lever.",
-        "progression": "Can grow toward 5 min total if it stays easy."
+        "note": "Straddle handstand: shift to fingertips on one side, back to centre, then the other side. Keep it easy; stop if it tires you before the lever.",
+        "progression": "Can grow toward 5 min total if it stays easy. Free-hand lifts belong on D."
       },
       {
         "id": "a8",
@@ -284,7 +284,7 @@ const DEFAULT_PLAN = [
   {
     "id": "C",
     "name": "Pull volume / lever",
-    "note": "Keep the handstand practice easy so front lever gets your fresh effort. Human flag stays paused.",
+    "note": "Keep the shift practice easy so front lever gets your fresh effort. Human flag stays paused.",
     "ex": [
       {
         "id": "c1",
@@ -298,15 +298,15 @@ const DEFAULT_PLAN = [
       },
       {
         "id": "c9balance",
-        "n": "Easy two-arm handstand practice",
+        "n": "OAHS shift practice",
         "tier": "skill",
         "sets": 1,
         "reps": 3,
         "unit": "min",
         "rest": 0,
         "budget": true,
-        "note": "Short two-arm holds and straddle transitions, both hands down. No max holds or one-arm work. Cut it short if it tires you before the lever.",
-        "progression": "Can grow toward 5 min total if it stays easy."
+        "note": "Straddle handstand: shift to fingertips on one side, back to centre, then the other side. Keep it easy; stop if it tires you before the lever.",
+        "progression": "Can grow toward 5 min total if it stays easy. Free-hand lifts belong on D."
       },
       {
         "id": "c8",
@@ -346,8 +346,8 @@ const DEFAULT_PLAN = [
   },
   {
     "id": "D",
-    "name": "Balance / planche",
-    "note": "HSPU singles first while fresh, then balance practice, not long max holds.",
+    "name": "OAHS / planche",
+    "note": "One-arm handstand prep first while fresh, then HSPU singles and the planche lean. No long max holds.",
     "ex": [
       {
         "id": "d1",
@@ -360,6 +360,18 @@ const DEFAULT_PLAN = [
         "note": "Wrist rocks, scap push ups, a few easy handstand entries."
       },
       {
+        "id": "d8shifts",
+        "n": "OAHS straddle shifts",
+        "tier": "skill",
+        "sets": 1,
+        "reps": 5,
+        "unit": "min",
+        "rest": 0,
+        "note": "One-arm prep. In a straddle handstand, shift to fingertips on one side for a few seconds, back to centre, then the other side. Come down and rest between efforts.",
+        "progression": "Keep shifts quiet and controlled, then grow the window toward 8 min. Once fingertip shifts are steady, try brief free-hand lifts of 1–2s. No long one-arm holds.",
+        "budget": true
+      },
+      {
         "id": "d10hspu",
         "n": "Freestanding HSPU",
         "tier": "main",
@@ -367,20 +379,8 @@ const DEFAULT_PLAN = [
         "reps": 1,
         "unit": "reps",
         "rest": 180,
-        "note": "Clean singles, about 3 min apart. Stop before a grind or losing balance.",
+        "note": "Clean singles, about 3 min apart, after the OAHS work. Stop before a grind or losing balance.",
         "progression": "Progress HSPU on B first; keep these as clean singles."
-      },
-      {
-        "id": "d8shifts",
-        "n": "Supported straddle lateral shifts",
-        "tier": "skill",
-        "sets": 1,
-        "reps": 5,
-        "unit": "min",
-        "rest": 0,
-        "note": "In a straddle handstand, shift slightly side to side for a few seconds, then come down. Both hands stay down.",
-        "progression": "Get the shifts small and quiet first, then grow the window toward 8 min.",
-        "budget": true
       },
       {
         "id": "d9lean",
@@ -477,15 +477,20 @@ const PULL_NOTES={
 const HSPU_PROGRESS_BEFORE="After two repeatable, well-recovered exposures, try 2 reps in just one set if a clean rep would remain. Keep the other sets as singles and reassess before expanding doubles.";
 const HSPU_PROGRESS_NOW="When five singles are consistently comfortable and recovery is good, targeted HSPU work is the next candidate for a small manual increase. After two such exposures, try 2 reps in just one set only if a clean rep would remain; keep other sets as singles. No automatic increase or added general pressing.";
 // Repairs saved v4 plans from before the A/C handstand block. DEFAULT_PLAN already includes it.
+const OLD_EX_NAMES={"a9balance": ["Easy two-arm handstand practice"], "c9balance": ["Easy two-arm handstand practice"], "d8shifts": ["Supported straddle lateral shifts"]};
+const OLD_SESSION_NAMES={"D": ["Balance / planche"]};
 // Pre-handstand wordings of the A/C session notes and HSPU progression.
 for(const sid of ["A","C"])OLD_SESSION_NOTES[sid].push(PULL_NOTES[sid][0]);
 OLD_EX_NOTES.b3.progression.push(HSPU_PROGRESS_BEFORE);
+// Also renames sessions/exercises whose names are still an earlier default.
 function trimNotes(plan){
   for(const session of plan){
     const def=DEFAULT_PLAN.find(p=>p.id===session.id);
     if(def&&(OLD_SESSION_NOTES[session.id]||[]).includes(session.note))session.note=def.note;
+    if(def&&(OLD_SESSION_NAMES[session.id]||[]).includes(session.name))session.name=def.name;
     for(const e of session.ex){
       const old=OLD_EX_NOTES[e.id], defEx=def&&def.ex.find(x=>x.id===e.id);
+      if(defEx&&(OLD_EX_NAMES[e.id]||[]).includes(e.n))e.n=defEx.n;
       if(!old||!defEx)continue;
       for(const field of ["note","progression"])
         if((old[field]||[]).includes(e[field]))e[field]=defEx[field];
@@ -1138,7 +1143,7 @@ function render(){
      '</div>';
 
   if(storageBlocked)h+='<div class="note">Stored data could not be read. It has not been overwritten. Export or recover the original browser data before logging here.</div>';
-  if(S.planVersion<PLAN_VERSION)h+='<div class="sec">Revised routine available</div><div class="note">Front lever leads the pulling work; brief easy handstand practice on A/C, HSPU singles and focused D balance practice. Your current plan stays until you switch. Switching saves its edits and unfinished log in Data, keeps history and maxes, and starts week 1.</div><button class="btn" onclick="resetPlan()">Use revised routine</button>';
+  if(S.planVersion<PLAN_VERSION)h+='<div class="sec">Revised routine available</div><div class="note">Front lever leads the pulling work; OAHS shift practice on A/C, HSPU singles on B and D, and a dedicated OAHS session on D. Your current plan stays until you switch. Switching saves its edits and unfinished log in Data, keeps history and maxes, and starts week 1.</div><button class="btn" onclick="resetPlan()">Use revised routine</button>';
   if(tab==="train")h+=viewTrain(ph);
   if(tab==="progress")h+=viewProgress();
   if(tab==="edit")h+=viewEdit();

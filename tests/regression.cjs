@@ -67,7 +67,7 @@ test('A/C handstand blocks have short supported practice and stable doses; other
  for(const sid of ['A','C']){
    const rows=json(`S.plan.find(p=>p.id==='${sid}').ex`);
    assert.equal(rows[1].id,sid.toLowerCase()+'9balance');assert.equal(rows[1].reps,3);assert.equal(rows[1].budget,true);
-   assert.ok(rows[1].note.includes('both hands down'));assert.equal(rows[2].id,sid.toLowerCase()+'8');
+   assert.ok(rows[1].note.includes('shift to fingertips'));assert.equal(rows[1].n,'OAHS shift practice');assert.equal(rows[2].id,sid.toLowerCase()+'8');
  }
  assert.equal(run(`S.plan[1].ex.find(e=>e.id==='b3').sets`),5);
  assert.equal(run(`S.plan[1].ex.find(e=>e.id==='b3').reps`),1);
@@ -166,7 +166,7 @@ test('saved plans get the shorter notes once; personal edits, doses and records 
 test('pressing additions: default order, week-4 reduction, and a one-time conservative update for saved plans',()=>{
  run('S=blank()');
  assert.deepEqual(json(`S.plan[1].ex.map(e=>e.id)`),['b1','b3','b4free','b10dips','b11push','b7']);
- assert.deepEqual(json(`S.plan[3].ex.map(e=>e.id)`),['d1','d10hspu','d8shifts','d9lean','d7']);
+ assert.deepEqual(json(`S.plan[3].ex.map(e=>e.id)`),['d1','d8shifts','d10hspu','d9lean','d7']);
  assert.ok(run(`S.plan[1].ex.find(e=>e.id==='b10dips').optional`));assert.ok(!run(`S.plan[1].ex.find(e=>e.id==='b11push').optional`));
  for(const id of ['b10dips','b11push','d10hspu'])assert.equal(run(`setsFor(DEFAULT_PLAN.flatMap(p=>p.ex).find(e=>e.id==='${id}'),4)`),2);
  // A saved v4 plan from before the additions, with a personal edit and an unfinished log.
@@ -174,7 +174,7 @@ test('pressing additions: default order, week-4 reduction, and a one-time conser
  run(strip+`S.plan[1].ex.find(e=>e.id==='b3').sets=4;S.today={date:'2026-09-24',sid:'B',log:{b3:[1,1]},band:{},rice:false};S.history=[{date:'2026-09-20',sid:'B',detail:[{n:'Dips',unit:'reps',sets:[6,6]}]}];S.rot=5;save()`);
  const before=json('S');run('load()');
  assert.deepEqual(json(`S.plan[1].ex.map(e=>e.id)`),['b1','b3','b4free','b10dips','b11push','b7']);
- assert.deepEqual(json(`S.plan[3].ex.map(e=>e.id)`),['d1','d10hspu','d8shifts','d9lean','d7']);
+ assert.deepEqual(json(`S.plan[3].ex.map(e=>e.id)`),['d1','d8shifts','d10hspu','d9lean','d7']);
  assert.equal(run(`S.plan[1].ex.find(e=>e.id==='b3').sets`),4,'personal dose kept');
  for(const key of ['today','history','rot','week','prs'])assert.deepEqual(json('S.'+key),before[key]);
  assert.ok(run(`viewLast('B',S.plan[1].ex.find(e=>e.id==='b10dips'))`).includes('6, 6'),'earlier B dips show as last results');
@@ -183,7 +183,7 @@ test('pressing additions: default order, week-4 reduction, and a one-time conser
  run(`S.plan[1].ex=S.plan[1].ex.filter(e=>e.id!=='b10dips');save();load()`);
  assert.ok(!run(`S.plan[1].ex.some(e=>e.id==='b10dips')`),'later deletion stays deleted');
  // Manual equivalents are not duplicated; ID collisions get a new ID; custom order falls back to the end.
- run(strip+`S.plan[1].ex.push({id:'mine',n:'Knee push-ups',tier:'accessory',sets:2,reps:12,unit:'reps',rest:60});S.plan[0].ex.push({id:'d10hspu',n:'Other',tier:'main',sets:1,reps:1,unit:'reps',rest:0});S.plan[3].ex=S.plan[3].ex.filter(e=>e.id!=='d1');save();load()`);
+ run(strip+`S.plan[1].ex.push({id:'mine',n:'Knee push-ups',tier:'accessory',sets:2,reps:12,unit:'reps',rest:60});S.plan[0].ex.push({id:'d10hspu',n:'Other',tier:'main',sets:1,reps:1,unit:'reps',rest:0});S.plan[3].ex=S.plan[3].ex.filter(e=>!['d1','d8shifts'].includes(e.id));save();load()`);
  assert.equal(run(`S.plan[1].ex.filter(e=>/push/i.test(e.n)).length`),1);assert.ok(run(`S.plan[1].ex.some(e=>e.id==='b10dips')`));
  assert.equal(run(`S.plan[3].ex.at(-1).id`),'d10hspux1');
  assert.equal(run('new Set(S.plan.flatMap(p=>p.ex.map(e=>e.id))).size'),run('S.plan.flatMap(p=>p.ex).length'));
@@ -192,5 +192,14 @@ test('pressing additions: default order, week-4 reduction, and a one-time conser
  run(strip+`S.planArchives=[archivePlan()];restorePlan(0)`);assert.ok(run(`S.plan[3].ex.some(e=>e.id==='d10hspu')`));
  run(strip);context.backupText=run('snapshot()');context.confirm=()=>true;run('applyBackup(backupText)');context.confirm=()=>false;
  assert.ok(run(`S.plan[1].ex.some(e=>e.id==='b11push')`));
+});
+test('OAHS: D is the one-arm session with shifts first; saved plans rename only untouched defaults',()=>{
+ run('S=blank()');assert.equal(run('S.plan[3].name'),'OAHS / planche');
+ assert.equal(run('S.plan[3].ex[1].id'),'d8shifts');assert.ok(run('S.plan[3].ex[1].progression.includes("free-hand lifts")'));
+ run(`S=blank();delete S.notesVersion;S.plan[3].name=OLD_SESSION_NAMES.D[0];S.plan[0].ex.find(e=>e.id==='a9balance').n=OLD_EX_NAMES.a9balance[0];
+   S.plan[2].ex.find(e=>e.id==='c9balance').n='My handstand block';S.plan[3].ex.find(e=>e.id==='d8shifts').n=OLD_EX_NAMES.d8shifts[0];save();load()`);
+ assert.equal(run('S.plan[3].name'),'OAHS / planche');assert.equal(run(`S.plan[0].ex.find(e=>e.id==='a9balance').n`),'OAHS shift practice');
+ assert.equal(run(`S.plan[3].ex.find(e=>e.id==='d8shifts').n`),'OAHS straddle shifts');
+ assert.equal(run(`S.plan[2].ex.find(e=>e.id==='c9balance').n`),'My handstand block','personal name kept');
 });
 console.log(`${passed} regression groups passed.`);
