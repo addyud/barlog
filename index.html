@@ -212,7 +212,7 @@ const DEFAULT_PLAN = [
   {
     "id": "B",
     "name": "Press / HSPU",
-    "note": "HSPU singles get your fresh effort.",
+    "note": "HSPU singles get your fresh effort. Dips are on trial: drop them if your shoulder complains.",
     "ex": [
       {
         "id": "b1",
@@ -246,6 +246,29 @@ const DEFAULT_PLAN = [
         "note": "0–2 clean singles on bars, only if you're still fresh after the regular HSPUs. No wall.",
         "optional": true,
         "progression": "Add depth or reps only after clean sessions, and not at the same time as adding regular HSPU work."
+      },
+      {
+        "id": "b10dips",
+        "n": "Dips",
+        "tier": "main",
+        "sets": 3,
+        "reps": 5,
+        "unit": "reps",
+        "rest": 120,
+        "optional": true,
+        "note": "Provisional. Comfortable depth, reps in reserve. Stop if your shoulder aches; note it in the log.",
+        "progression": "If your shoulder stays quiet for two weeks, add a rep to one set."
+      },
+      {
+        "id": "b11push",
+        "n": "Push ups",
+        "tier": "accessory",
+        "sets": 3,
+        "reps": 10,
+        "unit": "reps",
+        "rest": 90,
+        "note": "Full range, a rep or two in reserve.",
+        "progression": "When all sets feel easy, add a rep or two to one set. At 3 × 15, move to a harder variation."
       },
       {
         "id": "b7",
@@ -324,7 +347,7 @@ const DEFAULT_PLAN = [
   {
     "id": "D",
     "name": "Balance / planche",
-    "note": "Balance practice, not long max holds. Dips only on this day.",
+    "note": "HSPU singles first while fresh, then balance practice, not long max holds.",
     "ex": [
       {
         "id": "d1",
@@ -335,6 +358,17 @@ const DEFAULT_PLAN = [
         "unit": "min",
         "rest": 0,
         "note": "Wrist rocks, scap push ups, a few easy handstand entries."
+      },
+      {
+        "id": "d10hspu",
+        "n": "Freestanding HSPU",
+        "tier": "main",
+        "sets": 3,
+        "reps": 1,
+        "unit": "reps",
+        "rest": 180,
+        "note": "Clean singles, about 3 min apart. Stop before a grind or losing balance.",
+        "progression": "Progress HSPU on B first; keep these as clean singles."
       },
       {
         "id": "d8shifts",
@@ -537,7 +571,7 @@ function bfPlan(){ return S.plan.find(p=>p.id===bfSid); }
 function bfEx(exId){ const p=bfPlan(); return p&&p.ex.find(x=>x.id===exId); }
 
 function blank(){return{
-  planVersion:PLAN_VERSION, riceRestoreVersion:1, handstandPracticeVersion:1, notesVersion:1, reducedWeek4:true,
+  planVersion:PLAN_VERSION, ...patchFlags(()=>1), reducedWeek4:true,
   week:1, rot:0, alert:"vibrate",
   plan:JSON.parse(JSON.stringify(DEFAULT_PLAN)),
   today:{date:"",sid:"A",log:{},band:{},rice:false},
@@ -556,24 +590,55 @@ function restoreRiceWork(plan){
     session.ex.push({id:newId,n:"Rice bag wrists",tier:"prep",sets:1,reps:5,unit:"min",rest:0});
   }
 }
+// Add the September 24 pressing work to a saved v4 plan, in its default position.
+// Anything that already looks present is left alone rather than duplicated.
+const PRESS_ADDITIONS=[["B","b10dips",/\bdips?\b/i],["B","b11push",/push\s*-?\s*ups?/i],["D","d10hspu",/hspu|handstand push/i]];
+function addPressWork(plan){
+  for(const [sid,id,present] of PRESS_ADDITIONS){
+    const session=plan.find(p=>p.id===sid), def=DEFAULT_PLAN.find(p=>p.id===sid);
+    if(!session||session.ex.some(e=>e.id===id||present.test(e.n||"")))continue;
+    const ex=JSON.parse(JSON.stringify(def.ex.find(e=>e.id===id)));
+    const used=new Set(plan.flatMap(p=>p.ex.map(e=>e.id)));
+    let newId=id, suffix=1;
+    while(used.has(newId))newId=id+"x"+(suffix++);
+    ex.id=newId;
+    // Insert after the nearest exercise that precedes it in the default; otherwise at the end.
+    let at=session.ex.length;
+    for(let k=def.ex.findIndex(e=>e.id===id)-1;k>=0;k--){
+      const j=session.ex.findIndex(e=>e.id===def.ex[k].id);
+      if(j>=0){ at=j+1; break; }
+    }
+    session.ex.splice(at,0,ex);
+  }
+}
+// One-time repairs for saved plans, applied in order. Each stores its key once it has run,
+// so later deliberate edits stick. v4Only patches leave older, unadopted routines alone.
+const PLAN_PATCHES=[
+  {key:"riceRestoreVersion",v4Only:true,apply:restoreRiceWork},
+  {key:"handstandPracticeVersion",v4Only:true,apply:addHandstandPractice},
+  {key:"notesVersion",v4Only:false,apply:trimNotes},
+  {key:"pressWorkVersion",v4Only:true,apply:addPressWork},
+];
+function patchFlags(value){ return Object.fromEntries(PLAN_PATCHES.map(p=>[p.key,value(p.key)])); }
+// `saved` is the stored record (state, backup or archive) whose flags say what already ran.
+function applyPatches(state,planVersion,saved){
+  for(const p of PLAN_PATCHES)
+    if(!saved[p.key]&&(!p.v4Only||planVersion===4))p.apply(state.plan);
+  Object.assign(state,patchFlags(()=>1));
+}
 // Other plan adoption remains explicit; no unrelated custom edits are rewritten.
-function migrate(state,fromVersion,riceRevision=0,handstandRevision=0,notesRevision=0){
+function migrate(state,fromVersion,saved){
   state.planVersion=fromVersion;
   state.prs=Object.assign(blank().prs,state.prs||{});
   state.today=Object.assign(blank().today,state.today||{});
   state.planArchives=state.planArchives||[];
-  if(fromVersion===4&&riceRevision<1)restoreRiceWork(state.plan);
-  state.riceRestoreVersion=1;
-  if(fromVersion===4&&handstandRevision<1)addHandstandPractice(state.plan);
-  state.handstandPracticeVersion=1;
-  if(notesRevision<1)trimNotes(state.plan);
-  state.notesVersion=1;
+  applyPatches(state,fromVersion,saved);
   state.reducedWeek4=state.reducedWeek4!==false;
   return state;
 }
 function archivePlan(){
   return JSON.parse(JSON.stringify({savedAt:new Date().toISOString(),plan:S.plan,
-    planVersion:S.planVersion,riceRestoreVersion:S.riceRestoreVersion,handstandPracticeVersion:S.handstandPracticeVersion,notesVersion:S.notesVersion,today:S.today,week:S.week,rot:S.rot}));
+    planVersion:S.planVersion,...patchFlags(k=>S[k]),today:S.today,week:S.week,rot:S.rot}));
 }
 function switchPlan(archivedIndex){
   const previous=JSON.parse(JSON.stringify(S));
@@ -583,12 +648,7 @@ function switchPlan(archivedIndex){
   S.planArchives.push(saved);
   S.plan=JSON.parse(JSON.stringify(archived?archived.plan:DEFAULT_PLAN));
   S.planVersion=archived?archived.planVersion:PLAN_VERSION;
-  if(archived&&S.planVersion===4&&!archived.riceRestoreVersion)restoreRiceWork(S.plan);
-  S.riceRestoreVersion=1;
-  if(archived&&S.planVersion===4&&!archived.handstandPracticeVersion)addHandstandPractice(S.plan);
-  S.handstandPracticeVersion=1;
-  if(archived&&!archived.notesVersion)trimNotes(S.plan);
-  S.notesVersion=1;
+  applyPatches(S,S.planVersion,archived||blank());
   S.week=archived?archived.week:1;
   S.rot=archived?archived.rot:S.rot;
   S.today=archived?JSON.parse(JSON.stringify(archived.today)):
@@ -606,7 +666,7 @@ function load(){
     if(raw){ const p=JSON.parse(raw), fromVersion=Number(p.planVersion||1); S=Object.assign(blank(),p);
       S.prs=Object.assign(blank().prs,p.prs||{});
       if(!S.plan||!S.plan.length) S.plan=JSON.parse(JSON.stringify(DEFAULT_PLAN));
-      migrate(S,fromVersion,p.riceRestoreVersion||0,p.handstandPracticeVersion||0,p.notesVersion||0); save();
+      migrate(S,fromVersion,p); save();
       return; }
   }catch(e){ console.error("load failed",e); storageBlocked=true; }
   S=blank();
@@ -1032,7 +1092,7 @@ function applyBackup(text){
   if(!confirm("Replace everything currently stored with this backup?"))return;
   const fromVersion=Number(p.planVersion||1);
   stopTimer(); bfLog={}; bfResetForm();
-  S=migrate(Object.assign(blank(),p),fromVersion,p.riceRestoreVersion||0,p.handstandPracticeVersion||0,p.notesVersion||0); storageBlocked=false;
+  S=migrate(Object.assign(blank(),p),fromVersion,p); storageBlocked=false;
   historyMode="recent"; historyMonth=""; historySession=""; historyPage=0; openHist=-1; commit();
   toast("Restored");
 }

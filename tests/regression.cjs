@@ -11,7 +11,7 @@ vm.runInContext(source,context);
 const run=s=>vm.runInContext(s,context), json=s=>JSON.parse(run(`JSON.stringify(${s})`));
 let passed=0; function test(name,f){f();passed++;console.log(`PASS ${name}`)}
 test('new install and every session render across all eight weeks',()=>{assert.equal(run('KEY'),storageKey);for(let w=1;w<=8;w++){run(`S.week=${w}`);for(const sid of ['A','B','C','D','T']){run(`S.today.sid='${sid}';render();viewEdit();viewProgress();viewData()`);assert.ok(elements.get('app').innerHTML.includes('Bar'));}}});
-test('fixed doses, safe week-four reduction and exercise-specific progression',()=>{for(let w=1;w<=8;w++){assert.equal(run(`repsFor(DEFAULT_PLAN[0].ex.find(e=>e.id==='a8'),${w})`),6);assert.equal(run(`repsFor(DEFAULT_PLAN[1].ex[1],${w})`),1);assert.equal(run(`setsFor(DEFAULT_PLAN[0].ex.find(e=>e.id==='a3'),${w})`),w===4?3:5);}assert.equal(run('repsFor(DEFAULT_PLAN[3].ex[1],4)'),3);assert.ok(!run('viewTrain(phase(6))').includes('Slow the eccentric'));assert.equal(run('DEFAULT_PLAN[1].ex[2].id'),'b4free');assert.ok(run('DEFAULT_PLAN[1].ex[2].optional'));});
+test('fixed doses, safe week-four reduction and exercise-specific progression',()=>{for(let w=1;w<=8;w++){assert.equal(run(`repsFor(DEFAULT_PLAN[0].ex.find(e=>e.id==='a8'),${w})`),6);assert.equal(run(`repsFor(DEFAULT_PLAN[1].ex[1],${w})`),1);assert.equal(run(`setsFor(DEFAULT_PLAN[0].ex.find(e=>e.id==='a3'),${w})`),w===4?3:5);}assert.equal(run(`repsFor(DEFAULT_PLAN[3].ex.find(e=>e.id==='d8shifts'),4)`),3);assert.ok(!run('viewTrain(phase(6))').includes('Slow the eccentric'));assert.equal(run('DEFAULT_PLAN[1].ex[2].id'),'b4free');assert.ok(run('DEFAULT_PLAN[1].ex[2].optional'));});
 test('legacy/custom plan load is not rewritten; adoption, undo and backup preserve records and unfinished work',()=>{run(`S=blank();S.planVersion=1;S.plan[0].ex[0].n='Custom warm up';S.plan[0].ex.push({id:'a4',n:'Custom MU',tier:'skill',sets:7,reps:2,unit:'reps',rest:60});S.today={date:'2026-01-01',sid:'A',log:{a4:[2]},band:{a4:'red'},rice:true};S.history=[{date:'2026-01-01',sid:'A',week:2,note:'kept',detail:[{n:'Original',unit:'reps',sets:[2],band:'red'}]}];S.prs.hspu=[{date:'2026-01-01',value:2}];save()`);const original=json('S');run('load()');assert.deepEqual(json('S.plan'),original.plan);assert.equal(run('S.planVersion'),1);run('switchPlan()');assert.equal(run('S.planVersion'),4);assert.deepEqual(json('S.history'),original.history);assert.deepEqual(json('S.prs'),original.prs);assert.deepEqual(json('S.planArchives[0].today'),original.today);run('restorePlan(0)');assert.deepEqual(json('S.plan'),original.plan);assert.deepEqual(json('S.today'),original.today);assert.deepEqual(JSON.parse(run('snapshot()')).history,original.history);});
 test('adoption storage failure leaves original state intact',()=>{const before=json('S');failSave=true;run('switchPlan()');failSave=false;assert.deepEqual(json('S'),before)});
 test('logging optional skip, one-second adjustment, history retention beyond 300 and rotation',()=>{run(`S=blank();S.today.sid='B';S.history=Array.from({length:320},(_,i)=>({date:'2025-01-01',sid:'A',note:String(i)}));logSet('b3',0,1);finish()`);assert.equal(run('S.history.length'),321);assert.equal(run('S.history[0].reps'),1);assert.equal(run('S.history[0].detail.length'),1);assert.equal(run('S.rot'),1);run(`S.today.sid='A';logSet('a8',0,6);nudge('a8',-1)`);assert.deepEqual(json('S.today.log.a8'),[5]);});
@@ -162,5 +162,33 @@ test('saved plans get the shorter notes once; personal edits, doses and records 
  assert.equal(run('S.plan[0].note'),run('DEFAULT_PLAN[0].note'));
  run(`S=blank();S.plan[0].note=OLD_SESSION_NOTES.A[0];delete S.notesVersion`);context.backupText=run('snapshot()');context.confirm=()=>true;run('applyBackup(backupText)');context.confirm=()=>false;
  assert.equal(run('S.plan[0].note'),run('DEFAULT_PLAN[0].note'));
+});
+test('pressing additions: default order, week-4 reduction, and a one-time conservative update for saved plans',()=>{
+ run('S=blank()');
+ assert.deepEqual(json(`S.plan[1].ex.map(e=>e.id)`),['b1','b3','b4free','b10dips','b11push','b7']);
+ assert.deepEqual(json(`S.plan[3].ex.map(e=>e.id)`),['d1','d10hspu','d8shifts','d9lean','d3','d7']);
+ assert.ok(run(`S.plan[1].ex.find(e=>e.id==='b10dips').optional`));assert.ok(!run(`S.plan[1].ex.find(e=>e.id==='b11push').optional`));
+ for(const id of ['b10dips','b11push','d10hspu'])assert.equal(run(`setsFor(DEFAULT_PLAN.flatMap(p=>p.ex).find(e=>e.id==='${id}'),4)`),2);
+ // A saved v4 plan from before the additions, with a personal edit and an unfinished log.
+ const strip=`S=blank();delete S.pressWorkVersion;S.plan[1].ex=S.plan[1].ex.filter(e=>!['b10dips','b11push'].includes(e.id));S.plan[3].ex=S.plan[3].ex.filter(e=>e.id!=='d10hspu');`;
+ run(strip+`S.plan[1].ex.find(e=>e.id==='b3').sets=4;S.today={date:'2026-09-24',sid:'B',log:{b3:[1,1]},band:{},rice:false};S.history=[{date:'2026-09-20',sid:'B',detail:[{n:'Dips',unit:'reps',sets:[6,6]}]}];S.rot=5;save()`);
+ const before=json('S');run('load()');
+ assert.deepEqual(json(`S.plan[1].ex.map(e=>e.id)`),['b1','b3','b4free','b10dips','b11push','b7']);
+ assert.deepEqual(json(`S.plan[3].ex.map(e=>e.id)`),['d1','d10hspu','d8shifts','d9lean','d3','d7']);
+ assert.equal(run(`S.plan[1].ex.find(e=>e.id==='b3').sets`),4,'personal dose kept');
+ for(const key of ['today','history','rot','week','prs'])assert.deepEqual(json('S.'+key),before[key]);
+ assert.ok(run(`viewLast('B',S.plan[1].ex.find(e=>e.id==='b10dips'))`).includes('6, 6'),'earlier B dips show as last results');
+ run(`S.plan[1].ex=S.plan[1].ex.filter(e=>e.id!=='b10dips');save();load()`);
+ assert.ok(!run(`S.plan[1].ex.some(e=>e.id==='b10dips')`),'later deletion stays deleted');
+ // Manual equivalents are not duplicated; ID collisions get a new ID; custom order falls back to the end.
+ run(strip+`S.plan[1].ex.push({id:'mine',n:'Knee push-ups',tier:'accessory',sets:2,reps:12,unit:'reps',rest:60});S.plan[0].ex.push({id:'d10hspu',n:'Other',tier:'main',sets:1,reps:1,unit:'reps',rest:0});S.plan[3].ex=S.plan[3].ex.filter(e=>e.id!=='d1');save();load()`);
+ assert.equal(run(`S.plan[1].ex.filter(e=>/push/i.test(e.n)).length`),1);assert.ok(run(`S.plan[1].ex.some(e=>e.id==='b10dips')`));
+ assert.equal(run(`S.plan[3].ex.at(-1).id`),'d10hspux1');
+ assert.equal(run('new Set(S.plan.flatMap(p=>p.ex.map(e=>e.id))).size'),run('S.plan.flatMap(p=>p.ex).length'));
+ // Older, unadopted routines are left alone; archives and backups are updated on restore.
+ run(strip+`S.planVersion=3;save();load()`);assert.ok(!run(`S.plan[1].ex.some(e=>e.id==='b11push')`));
+ run(strip+`S.planArchives=[archivePlan()];restorePlan(0)`);assert.ok(run(`S.plan[3].ex.some(e=>e.id==='d10hspu')`));
+ run(strip);context.backupText=run('snapshot()');context.confirm=()=>true;run('applyBackup(backupText)');context.confirm=()=>false;
+ assert.ok(run(`S.plan[1].ex.some(e=>e.id==='b11push')`));
 });
 console.log(`${passed} regression groups passed.`);
