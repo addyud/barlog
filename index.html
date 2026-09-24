@@ -83,7 +83,6 @@ button{font-family:inherit}
 .adjL{font-family:var(--mono);font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--galv)}
 .adjB{width:34px;height:30px;background:var(--steel);border:1px solid var(--steel-hi);border-radius:3px;color:var(--chalk);font-size:16px;font-family:var(--mono);line-height:1;padding:0}
 .adjB:active{background:var(--steel-hi)}
-.holdB{margin-left:auto;padding:7px 12px;background:none;border:1px solid var(--sodium-dim);border-radius:3px;color:var(--sodium);font-family:var(--mono);font-size:10px;letter-spacing:.08em;text-transform:uppercase}
 
 .acts{display:flex;gap:8px;margin:22px 0 8px}
 .btn{flex:1;padding:14px 10px;border-radius:3px;font-family:var(--disp);font-weight:600;font-size:15px;letter-spacing:.09em;text-transform:uppercase;background:var(--sodium);border:1px solid var(--sodium);color:var(--night)}
@@ -150,7 +149,7 @@ const DEFAULT_PLAN = [
   {
     "id": "A",
     "name": "Pull / front lever",
-    "note": "Brief easy handstand practice after warmup, then front lever as the main fresh pulling focus. Stop the balance practice before fatigue; explosive pulls support the muscle-up goal.",
+    "note": "Keep the handstand practice easy so front lever gets your fresh effort. Muscle-up attempts stay paused.",
     "ex": [
       {
         "id": "a1",
@@ -160,7 +159,7 @@ const DEFAULT_PLAN = [
         "reps": 5,
         "unit": "min",
         "rest": 0,
-        "note": "Easy hangs, scapular pulls and comfortable shoulder and wrist movement. Gradually rehearse the first exercise."
+        "note": "Easy hangs, scap pulls, shoulder and wrist movement."
       },
       {
         "id": "a9balance",
@@ -171,8 +170,8 @@ const DEFAULT_PLAN = [
         "unit": "min",
         "rest": 0,
         "budget": true,
-        "note": "3 minutes TOTAL including rests. Short controlled freestanding balance/alignment practice and comfortable straddle transitions, with BOTH HANDS supported. Keep it easy: no maximal-duration holds or one-arm attempts. Shorten or skip if it starts to tire you before front lever.",
-        "progression": "May build toward 5 minutes total only if quality stays easy and recovery permits. This is practice time, not continuous hold time. D remains the dedicated one-arm-preparation session."
+        "note": "Short two-arm holds and straddle transitions, both hands down. No max holds or one-arm work. Cut it short if it tires you before the lever.",
+        "progression": "Can grow toward 5 min total if it stays easy."
       },
       {
         "id": "a8",
@@ -182,9 +181,9 @@ const DEFAULT_PLAN = [
         "reps": 6,
         "unit": "s",
         "rest": 90,
-        "note": "Up to 6s per hold; stop when hips drop or position changes. Rest 90–120s. Log actual seconds, not the cap.",
+        "note": "Stop when hips drop. Rest 90–120s. Fix the chip to your actual seconds.",
         "cap": true,
-        "progression": "After two controlled exposures with recovery back to normal, add 1s to selected holds, then all holds. Build toward 8–10s before trying a slightly longer lever at shorter holds. Change one variable at a time."
+        "progression": "After two clean sessions, add 1s to some holds, then all. At 8–10s, move to a slightly longer lever with shorter holds."
       },
       {
         "id": "a3",
@@ -194,8 +193,8 @@ const DEFAULT_PLAN = [
         "reps": 3,
         "unit": "reps",
         "rest": 150,
-        "note": "Unassisted; aim for your repeatable lower-chest height. Rest 150–180s. End the set if height or speed falls; fewer than 3 reps is valid.",
-        "progression": "Keep fast pulling intent. Once all sets retain height and speed across two exposures, aim slightly higher at the same reps. If height stalls, review technique before adding work; no automatic slow eccentric or band requirement."
+        "note": "Unassisted, to lower chest. Rest 150–180s. End the set when height or speed drops.",
+        "progression": "When every set keeps height and speed for two sessions, aim a little higher at the same reps."
       },
       {
         "id": "a6",
@@ -205,15 +204,15 @@ const DEFAULT_PLAN = [
         "reps": 8,
         "unit": "reps",
         "rest": 90,
-        "note": "Comfortable false grip, heels on the ground. Adjust body angle for clean reps with reserve; supporting work after the priority pulls.",
-        "progression": "When all sets are controlled with reserve, make the body angle slightly harder, then rebuild at the same dose."
+        "note": "Heels down. Set the body angle so every rep is clean with some left in reserve.",
+        "progression": "When all sets feel controlled, make the angle a little harder."
       }
     ]
   },
   {
     "id": "B",
     "name": "Press / HSPU",
-    "note": "HSPU singles get the fresh effort. One-arm preparation and planche work are on D to limit duplicate shoulder load.",
+    "note": "HSPU singles get your fresh effort.",
     "ex": [
       {
         "id": "b1",
@@ -223,7 +222,7 @@ const DEFAULT_PLAN = [
         "reps": 5,
         "unit": "min",
         "rest": 0,
-        "note": "Wrist rocks, scapular push ups and easy handstand entries. Brief balance checks only; avoid tiring holds before HSPUs."
+        "note": "Wrist rocks, scap push ups, easy handstand entries. No tiring holds before HSPUs."
       },
       {
         "id": "b3",
@@ -233,8 +232,8 @@ const DEFAULT_PLAN = [
         "reps": 1,
         "unit": "reps",
         "rest": 180,
-        "note": "Five repeatable clean singles, about 3 minutes apart. Stop before grinding or losing balance; reduce sets if singles stop being repeatable.",
-        "progression": "When five singles are consistently comfortable and recovery is good, targeted HSPU work is the next candidate for a small manual increase. After two such exposures, try 2 reps in just one set only if a clean rep would remain; keep other sets as singles. No automatic increase or added general pressing."
+        "note": "Clean singles, about 3 min apart. Stop before a grind or losing balance.",
+        "progression": "When five singles feel easy for two sessions, try a double in one set if a clean rep would remain. Keep the rest as singles."
       },
       {
         "id": "b4free",
@@ -244,9 +243,9 @@ const DEFAULT_PLAN = [
         "reps": 1,
         "unit": "reps",
         "rest": 180,
-        "note": "Optional: 0–2 clean singles on the available bars, only with clear strength and balance reserve after ordinary HSPUs. Omit if fatigued. No wall or leg support.",
+        "note": "0–2 clean singles on bars, only if you're still fresh after the regular HSPUs. No wall.",
         "optional": true,
-        "progression": "Harder range work, not backoff sets. Keep a repeatable depth and reserve. Increase depth or reps only after controlled exposures and normal recovery, without also raising ordinary HSPU load."
+        "progression": "Add depth or reps only after clean sessions, and not at the same time as adding regular HSPU work."
       },
       {
         "id": "b7",
@@ -262,7 +261,7 @@ const DEFAULT_PLAN = [
   {
     "id": "C",
     "name": "Pull volume / lever",
-    "note": "Brief easy handstand practice after warmup, then front lever as the main fresh pulling focus. Keep the practice short enough to leave the lever fresh. Human flag remains paused initially.",
+    "note": "Keep the handstand practice easy so front lever gets your fresh effort. Human flag stays paused.",
     "ex": [
       {
         "id": "c1",
@@ -272,7 +271,7 @@ const DEFAULT_PLAN = [
         "reps": 5,
         "unit": "min",
         "rest": 0,
-        "note": "Easy hangs, scapular pulls and comfortable shoulder movement. Rehearse the tuck hold without fatigue."
+        "note": "Easy hangs, scap pulls, shoulder and wrist movement."
       },
       {
         "id": "c9balance",
@@ -283,8 +282,8 @@ const DEFAULT_PLAN = [
         "unit": "min",
         "rest": 0,
         "budget": true,
-        "note": "3 minutes TOTAL including rests. Short controlled freestanding balance/alignment practice and comfortable straddle transitions, with BOTH HANDS supported. Keep it easy: no maximal-duration holds or one-arm attempts. Shorten or skip if it starts to tire you before front lever.",
-        "progression": "May build toward 5 minutes total only if quality stays easy and recovery permits. This is practice time, not continuous hold time. D remains the dedicated one-arm-preparation session."
+        "note": "Short two-arm holds and straddle transitions, both hands down. No max holds or one-arm work. Cut it short if it tires you before the lever.",
+        "progression": "Can grow toward 5 min total if it stays easy."
       },
       {
         "id": "c8",
@@ -294,9 +293,9 @@ const DEFAULT_PLAN = [
         "reps": 6,
         "unit": "s",
         "rest": 90,
-        "note": "Up to 6s per hold; stop when hips drop or position changes. Rest 90–120s. Log actual seconds, not the cap.",
+        "note": "Stop when hips drop. Rest 90–120s. Fix the chip to your actual seconds.",
         "cap": true,
-        "progression": "After two controlled exposures with recovery back to normal, add 1s to selected holds, then all holds. Build toward 8–10s before trying a slightly longer lever at shorter holds. Change one variable at a time."
+        "progression": "After two clean sessions, add 1s to some holds, then all. At 8–10s, move to a slightly longer lever with shorter holds."
       },
       {
         "id": "c3",
@@ -306,8 +305,8 @@ const DEFAULT_PLAN = [
         "reps": 5,
         "unit": "reps",
         "rest": 120,
-        "note": "Clean reps with 1–2 reps in reserve. Rest about 2 minutes or longer as needed; reduce reps if the fifth becomes a grind.",
-        "progression": "After two clean, well-recovered exposures, add one rep to one set, working gradually toward 4 × 6. Reassess difficulty before adding sets."
+        "note": "Leave 1–2 reps in reserve. Rest 2 min or more.",
+        "progression": "After two clean sessions, add a rep to one set. Work toward 4 × 6."
       },
       {
         "id": "c6",
@@ -317,15 +316,15 @@ const DEFAULT_PLAN = [
         "reps": 5,
         "unit": "reps",
         "rest": 90,
-        "note": "Late in the session. No swinging; controlled pelvic movement.",
-        "progression": "Build gradually from 3 × 5 toward 3 × 8 with control before choosing a harder variation."
+        "note": "No swinging.",
+        "progression": "Build to 3 × 8 before a harder variation."
       }
     ]
   },
   {
     "id": "D",
     "name": "Balance / planche",
-    "note": "Specific balance practice replaces long maximal holds. Keep dips here only. This is a modest starting dose, adjustable with control and recovery.",
+    "note": "Balance practice, not long max holds. Dips only on this day.",
     "ex": [
       {
         "id": "d1",
@@ -335,7 +334,7 @@ const DEFAULT_PLAN = [
         "reps": 5,
         "unit": "min",
         "rest": 0,
-        "note": "Wrist rocks, scapular push ups and a few comfortable freestanding entries."
+        "note": "Wrist rocks, scap push ups, a few easy handstand entries."
       },
       {
         "id": "d8shifts",
@@ -345,8 +344,8 @@ const DEFAULT_PLAN = [
         "reps": 5,
         "unit": "min",
         "rest": 0,
-        "note": "5 minutes TOTAL including rests, not a continuous hold. In a freestanding straddle, shift slightly left and right for a few controlled seconds, then come down and rest. BOTH HANDS stay on the ground. No unsupported one-arm max attempts.",
-        "progression": "First improve small shifts and a quiet return to centre. Keep both hands supported. If control and recovery are consistent, extend the total practice window toward 8 minutes; do not simply chase longer holds.",
+        "note": "In a straddle handstand, shift slightly side to side for a few seconds, then come down. Both hands stay down.",
+        "progression": "Get the shifts small and quiet first, then grow the window toward 8 min.",
         "budget": true
       },
       {
@@ -357,9 +356,9 @@ const DEFAULT_PLAN = [
         "reps": 5,
         "unit": "s",
         "rest": 90,
-        "note": "Start with a small tolerable lean and feet on the ground. Straight arms, active shoulder support; stop if control or comfort changes. No pseudo-planche pushup block.",
+        "note": "Small lean, feet down, straight arms. Stop if it gets uncomfortable.",
         "cap": true,
-        "progression": "Gradually build controlled holds from 5 toward 8 seconds. Only then try a slightly larger lean and shorten the holds again. Account for HSPUs and dips when judging shoulder recovery."
+        "progression": "Build from 5 to 8s holds, then lean a little further and shorten them again."
       },
       {
         "id": "d3",
@@ -369,9 +368,9 @@ const DEFAULT_PLAN = [
         "reps": 5,
         "unit": "reps",
         "rest": 120,
-        "note": "Two comfortable sets with reps in reserve, on this day only. Reduce or omit if the preceding shoulder work leaves them uncomfortable or unsteady.",
+        "note": "Keep reps in reserve. Skip if your shoulders feel off after the earlier work.",
         "optional": true,
-        "progression": "Once both sets are easy to repeat and recovery is normal, add one rep to one set. Keep dips secondary to balance, HSPU and planche practice."
+        "progression": "When both sets feel easy, add a rep to one set."
       },
       {
         "id": "d7",
@@ -388,7 +387,7 @@ const DEFAULT_PLAN = [
     "id": "T",
     "name": "Optional benchmarks",
     "testOnly": true,
-    "note": "Optional in week 8; regular A–D sessions remain available. Choose one benchmark that matters and do it fresh after warming up. Skip the others. Results reflect session placement, not comparable fresh maxima if stacked.",
+    "note": "Optional, week 8. Pick one benchmark and do it fresh; skip the others.",
     "ex": [
       {
         "id": "t1",
@@ -398,7 +397,7 @@ const DEFAULT_PLAN = [
         "reps": 8,
         "unit": "min",
         "rest": 0,
-        "note": "Gradual preparation for your chosen benchmark, without tiring holds or repeated hard attempts."
+        "note": "Build up to your chosen benchmark without tiring yourself."
       },
       {
         "id": "t3",
@@ -408,7 +407,7 @@ const DEFAULT_PLAN = [
         "reps": 1,
         "unit": "reps",
         "rest": 300,
-        "note": "Freestanding. Stop at the last clean rep; tap to log then adjust to the actual result.",
+        "note": "Freestanding. Stop at the last clean rep, then fix the chip to your count.",
         "amrap": true,
         "optional": true,
         "pr": "hspu"
@@ -421,7 +420,7 @@ const DEFAULT_PLAN = [
         "reps": 6,
         "unit": "s",
         "rest": 300,
-        "note": "Time one technically sound hold; stop when position changes.",
+        "note": "One clean hold; stop when the position breaks.",
         "amrap": true,
         "optional": true,
         "pr": "lever"
@@ -434,7 +433,7 @@ const DEFAULT_PLAN = [
         "reps": 1,
         "unit": "reps",
         "rest": 300,
-        "note": "Stop at the last clean rep; record the actual result.",
+        "note": "Stop at the last clean rep, then fix the chip to your count.",
         "amrap": true,
         "optional": true,
         "pr": "pullup"
@@ -443,6 +442,10 @@ const DEFAULT_PLAN = [
   }
 ];
 
+// Earlier default wording. trimNotes swaps a note for the current default only while it
+// still matches one of these exactly, so personal edits are never overwritten.
+const OLD_SESSION_NOTES={"A": ["Brief easy handstand practice after warmup, then front lever as the main fresh pulling focus. Stop the balance practice before fatigue; explosive pulls support the muscle-up goal."], "B": ["HSPU singles get the fresh effort. One-arm preparation and planche work are on D to limit duplicate shoulder load."], "C": ["Brief easy handstand practice after warmup, then front lever as the main fresh pulling focus. Keep the practice short enough to leave the lever fresh. Human flag remains paused initially."], "D": ["Specific balance practice replaces long maximal holds. Keep dips here only. This is a modest starting dose, adjustable with control and recovery."], "T": ["Optional in week 8; regular A–D sessions remain available. Choose one benchmark that matters and do it fresh after warming up. Skip the others. Results reflect session placement, not comparable fresh maxima if stacked."]};
+const OLD_EX_NOTES={"a1": {"note": ["Easy hangs, scapular pulls and comfortable shoulder and wrist movement. Gradually rehearse the first exercise."]}, "a9balance": {"note": ["3 minutes TOTAL including rests. Short controlled freestanding balance/alignment practice and comfortable straddle transitions, with BOTH HANDS supported. Keep it easy: no maximal-duration holds or one-arm attempts. Shorten or skip if it starts to tire you before front lever."], "progression": ["May build toward 5 minutes total only if quality stays easy and recovery permits. This is practice time, not continuous hold time. D remains the dedicated one-arm-preparation session."]}, "a8": {"note": ["Up to 6s per hold; stop when hips drop or position changes. Rest 90–120s. Log actual seconds, not the cap."], "progression": ["After two controlled exposures with recovery back to normal, add 1s to selected holds, then all holds. Build toward 8–10s before trying a slightly longer lever at shorter holds. Change one variable at a time."]}, "a3": {"note": ["Unassisted; aim for your repeatable lower-chest height. Rest 150–180s. End the set if height or speed falls; fewer than 3 reps is valid."], "progression": ["Keep fast pulling intent. Once all sets retain height and speed across two exposures, aim slightly higher at the same reps. If height stalls, review technique before adding work; no automatic slow eccentric or band requirement."]}, "a6": {"note": ["Comfortable false grip, heels on the ground. Adjust body angle for clean reps with reserve; supporting work after the priority pulls."], "progression": ["When all sets are controlled with reserve, make the body angle slightly harder, then rebuild at the same dose."]}, "b1": {"note": ["Wrist rocks, scapular push ups and easy handstand entries. Brief balance checks only; avoid tiring holds before HSPUs."]}, "b3": {"note": ["Five repeatable clean singles, about 3 minutes apart. Stop before grinding or losing balance; reduce sets if singles stop being repeatable."], "progression": ["When five singles are consistently comfortable and recovery is good, targeted HSPU work is the next candidate for a small manual increase. After two such exposures, try 2 reps in just one set only if a clean rep would remain; keep other sets as singles. No automatic increase or added general pressing."]}, "b4free": {"note": ["Optional: 0–2 clean singles on the available bars, only with clear strength and balance reserve after ordinary HSPUs. Omit if fatigued. No wall or leg support."], "progression": ["Harder range work, not backoff sets. Keep a repeatable depth and reserve. Increase depth or reps only after controlled exposures and normal recovery, without also raising ordinary HSPU load."]}, "c1": {"note": ["Easy hangs, scapular pulls and comfortable shoulder movement. Rehearse the tuck hold without fatigue."]}, "c9balance": {"note": ["3 minutes TOTAL including rests. Short controlled freestanding balance/alignment practice and comfortable straddle transitions, with BOTH HANDS supported. Keep it easy: no maximal-duration holds or one-arm attempts. Shorten or skip if it starts to tire you before front lever."], "progression": ["May build toward 5 minutes total only if quality stays easy and recovery permits. This is practice time, not continuous hold time. D remains the dedicated one-arm-preparation session."]}, "c8": {"note": ["Up to 6s per hold; stop when hips drop or position changes. Rest 90–120s. Log actual seconds, not the cap."], "progression": ["After two controlled exposures with recovery back to normal, add 1s to selected holds, then all holds. Build toward 8–10s before trying a slightly longer lever at shorter holds. Change one variable at a time."]}, "c3": {"note": ["Clean reps with 1–2 reps in reserve. Rest about 2 minutes or longer as needed; reduce reps if the fifth becomes a grind."], "progression": ["After two clean, well-recovered exposures, add one rep to one set, working gradually toward 4 × 6. Reassess difficulty before adding sets."]}, "c6": {"note": ["Late in the session. No swinging; controlled pelvic movement."], "progression": ["Build gradually from 3 × 5 toward 3 × 8 with control before choosing a harder variation."]}, "d1": {"note": ["Wrist rocks, scapular push ups and a few comfortable freestanding entries."]}, "d8shifts": {"note": ["5 minutes TOTAL including rests, not a continuous hold. In a freestanding straddle, shift slightly left and right for a few controlled seconds, then come down and rest. BOTH HANDS stay on the ground. No unsupported one-arm max attempts."], "progression": ["First improve small shifts and a quiet return to centre. Keep both hands supported. If control and recovery are consistent, extend the total practice window toward 8 minutes; do not simply chase longer holds."]}, "d9lean": {"note": ["Start with a small tolerable lean and feet on the ground. Straight arms, active shoulder support; stop if control or comfort changes. No pseudo-planche pushup block."], "progression": ["Gradually build controlled holds from 5 toward 8 seconds. Only then try a slightly larger lean and shorten the holds again. Account for HSPUs and dips when judging shoulder recovery."]}, "d3": {"note": ["Two comfortable sets with reps in reserve, on this day only. Reduce or omit if the preceding shoulder work leaves them uncomfortable or unsteady."], "progression": ["Once both sets are easy to repeat and recovery is normal, add one rep to one set. Keep dips secondary to balance, HSPU and planche practice."]}, "t1": {"note": ["Gradual preparation for your chosen benchmark, without tiring holds or repeated hard attempts."]}, "t3": {"note": ["Freestanding. Stop at the last clean rep; tap to log then adjust to the actual result."]}, "t6": {"note": ["Time one technically sound hold; stop when position changes."]}, "t2": {"note": ["Stop at the last clean rep; record the actual result."]}};
 const PULL_NOTES={
   A:["Front lever first. Explosive pulls support the muscle-up goal; full muscle-up attempts are paused while the turnover limitation remains unclear.",
     "Brief easy handstand practice after warmup, then front lever as the main fresh pulling focus. Stop the balance practice before fatigue; explosive pulls support the muscle-up goal."],
@@ -452,6 +455,21 @@ const PULL_NOTES={
 const HSPU_PROGRESS_BEFORE="After two repeatable, well-recovered exposures, try 2 reps in just one set if a clean rep would remain. Keep the other sets as singles and reassess before expanding doubles.";
 const HSPU_PROGRESS_NOW="When five singles are consistently comfortable and recovery is good, targeted HSPU work is the next candidate for a small manual increase. After two such exposures, try 2 reps in just one set only if a clean rep would remain; keep other sets as singles. No automatic increase or added general pressing.";
 // Repairs saved v4 plans from before the A/C handstand block. DEFAULT_PLAN already includes it.
+// Pre-handstand wordings of the A/C session notes and HSPU progression.
+for(const sid of ["A","C"])OLD_SESSION_NOTES[sid].push(PULL_NOTES[sid][0]);
+OLD_EX_NOTES.b3.progression.push(HSPU_PROGRESS_BEFORE);
+function trimNotes(plan){
+  for(const session of plan){
+    const def=DEFAULT_PLAN.find(p=>p.id===session.id);
+    if(def&&(OLD_SESSION_NOTES[session.id]||[]).includes(session.note))session.note=def.note;
+    for(const e of session.ex){
+      const old=OLD_EX_NOTES[e.id], defEx=def&&def.ex.find(x=>x.id===e.id);
+      if(!old||!defEx)continue;
+      for(const field of ["note","progression"])
+        if((old[field]||[]).includes(e[field]))e[field]=defEx[field];
+    }
+  }
+}
 function addHandstandPractice(plan){
   for(const sid of ["A","C"]){
     const session=plan.find(p=>p.id===sid); if(!session)continue;
@@ -478,8 +496,8 @@ const PLAN_VERSION=4;
 let storageBlocked=false;
 
 /* ── state ── */
-let S=null, tab="train", timer=null, tick=null, ac=null, editSess="A", openHist=-1, bfSid="A", bfWeek=null, bfLog={}, bfHoldStart=null, bfHoldEx=null, bfHoldTick=null;
-/* backfill form fields live here so a re-render (chip tap, hold tick, week change) can't reset them */
+let S=null, tab="train", timer=null, tick=null, ac=null, editSess="A", openHist=-1, bfSid="A", bfWeek=null, bfLog={};
+/* backfill form fields live here so a re-render (chip tap, week change) can't reset them */
 let bfDate=null, bfReps="", bfSecs="", bfNote="", bfRice=false, bfAdv=null;
 let openPr=null;
 /* manual-max form fields, kept across re-renders like the backfill form */
@@ -507,20 +525,19 @@ function historyWindow(){
     historyMode==="recent"?5:(historyPage+1)*HISTORY_PAGE_SIZE),total:rows.length,pages};
 }
 function expandHist(i){ openHist=openHist===i?-1:i; render(); }
-function bfClearHold(){ if(bfHoldTick)clearInterval(bfHoldTick); bfHoldTick=null; bfHoldEx=null; bfHoldStart=null; }
-function setBfSess(id){ bfSid=id; bfLog={}; bfAdv=null; bfClearHold(); render(); }
+function setBfSess(id){ bfSid=id; bfLog={}; bfAdv=null; render(); }
 const bfDay=()=>bfDate||dayKey();
 const bfAdvOn=()=>bfAdv==null?bfWillAdv():bfAdv;
 function bfSet(k,v){ ({date:()=>bfDate=v,reps:()=>bfReps=v,secs:()=>bfSecs=v,
   note:()=>bfNote=v,rice:()=>bfRice=v,adv:()=>bfAdv=v})[k](); }
 function bfResetForm(){ bfDate=null; bfReps=""; bfSecs=""; bfNote=""; bfRice=false; bfAdv=null; }
 function setBfWeek(w){ bfWeek=w; render(); }
-function bfClearLog(){ bfLog={}; bfClearHold(); render(); }
+function bfClearLog(){ bfLog={}; render(); }
 function bfPlan(){ return S.plan.find(p=>p.id===bfSid); }
 function bfEx(exId){ const p=bfPlan(); return p&&p.ex.find(x=>x.id===exId); }
 
 function blank(){return{
-  planVersion:PLAN_VERSION, riceRestoreVersion:1, handstandPracticeVersion:1, reducedWeek4:true,
+  planVersion:PLAN_VERSION, riceRestoreVersion:1, handstandPracticeVersion:1, notesVersion:1, reducedWeek4:true,
   week:1, rot:0, alert:"vibrate",
   plan:JSON.parse(JSON.stringify(DEFAULT_PLAN)),
   today:{date:"",sid:"A",log:{},band:{},rice:false},
@@ -540,7 +557,7 @@ function restoreRiceWork(plan){
   }
 }
 // Other plan adoption remains explicit; no unrelated custom edits are rewritten.
-function migrate(state,fromVersion,riceRevision=0,handstandRevision=0){
+function migrate(state,fromVersion,riceRevision=0,handstandRevision=0,notesRevision=0){
   state.planVersion=fromVersion;
   state.prs=Object.assign(blank().prs,state.prs||{});
   state.today=Object.assign(blank().today,state.today||{});
@@ -549,12 +566,14 @@ function migrate(state,fromVersion,riceRevision=0,handstandRevision=0){
   state.riceRestoreVersion=1;
   if(fromVersion===4&&handstandRevision<1)addHandstandPractice(state.plan);
   state.handstandPracticeVersion=1;
+  if(notesRevision<1)trimNotes(state.plan);
+  state.notesVersion=1;
   state.reducedWeek4=state.reducedWeek4!==false;
   return state;
 }
 function archivePlan(){
   return JSON.parse(JSON.stringify({savedAt:new Date().toISOString(),plan:S.plan,
-    planVersion:S.planVersion,riceRestoreVersion:S.riceRestoreVersion,handstandPracticeVersion:S.handstandPracticeVersion,today:S.today,week:S.week,rot:S.rot}));
+    planVersion:S.planVersion,riceRestoreVersion:S.riceRestoreVersion,handstandPracticeVersion:S.handstandPracticeVersion,notesVersion:S.notesVersion,today:S.today,week:S.week,rot:S.rot}));
 }
 function switchPlan(archivedIndex){
   const previous=JSON.parse(JSON.stringify(S));
@@ -568,17 +587,18 @@ function switchPlan(archivedIndex){
   S.riceRestoreVersion=1;
   if(archived&&S.planVersion===4&&!archived.handstandPracticeVersion)addHandstandPractice(S.plan);
   S.handstandPracticeVersion=1;
+  if(archived&&!archived.notesVersion)trimNotes(S.plan);
+  S.notesVersion=1;
   S.week=archived?archived.week:1;
   S.rot=archived?archived.rot:S.rot;
   S.today=archived?JSON.parse(JSON.stringify(archived.today)):
     {date:dayKey(),sid:nextId(),log:{},band:{},rice:false};
   if(!save()){ S=previous; render(); return; }
-  stopTimer(); clearHold(); bfLog={}; bfClearHold(); bfResetForm();
+  stopTimer(); bfLog={}; bfResetForm();
   editSess=S.plan[0].id; bfSid=S.today.sid; tab="train"; render();
   toast("Plan switched. Previous plan and unfinished log saved in Data.");
 }
 function restorePlan(i){ switchPlan(i); }
-function clearHold(){ if(holdTick)clearInterval(holdTick); holdTick=null; holdEx=null; holdStart=null; }
 
 function load(){
   try{
@@ -586,7 +606,7 @@ function load(){
     if(raw){ const p=JSON.parse(raw), fromVersion=Number(p.planVersion||1); S=Object.assign(blank(),p);
       S.prs=Object.assign(blank().prs,p.prs||{});
       if(!S.plan||!S.plan.length) S.plan=JSON.parse(JSON.stringify(DEFAULT_PLAN));
-      migrate(S,fromVersion,p.riceRestoreVersion||0,p.handstandPracticeVersion||0); save();
+      migrate(S,fromVersion,p.riceRestoreVersion||0,p.handstandPracticeVersion||0,p.notesVersion||0); save();
       return; }
   }catch(e){ console.error("load failed",e); storageBlocked=true; }
   S=blank();
@@ -600,9 +620,9 @@ const shortD=d=>d.slice(8,10)+"/"+d.slice(5,7);
 const esc=s=>String(s==null?"":s).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
 
 function phase(w){
-  if(w===4)return S.reducedWeek4!==false?{l:"Recovery option",d:"Reduced targets selected. Use them when fatigue calls for less work; no missed-work catch-up is needed"}:{l:"Normal targets",d:"Normal targets selected. Choose reduced targets if fatigue or your recent training frequency calls for a lighter session"};
-  if(w===8)return{l:"Review",d:"Review control and recovery. Optional benchmarks are available; no max testing is required"};
-  return{l:"Practice",d:"Targets stay stable. Progress one variable only after repeatable quality and normal recovery"};
+  if(w===4)return S.reducedWeek4!==false?{l:"Recovery option",d:"Reduced targets for a lighter week. No catch-up needed"}:{l:"Normal targets",d:"Normal targets. Switch to reduced if you’re worn down"};
+  if(w===8)return{l:"Review",d:"Review week. Benchmarks are optional"};
+  return{l:"Practice",d:"Progress one thing at a time, after clean, well-recovered sessions"};
 }
 function setsFor(e,w){
   if(w===4&&S.reducedWeek4!==false&&e.tier!=="prep"&&!e.budget)return Math.max(1,Math.round(e.sets*0.6));
@@ -616,7 +636,7 @@ function week4Control(w){
   return '<div class="lbl">Week 4 targets</div><div class="acts">'+
     '<button class="btn '+(reduced?'':'ghost')+'" aria-pressed="'+reduced+'" onclick="setWeek4Reduced(true)">Reduced</button>'+
     '<button class="btn '+(reduced?'ghost':'')+'" aria-pressed="'+(!reduced)+'" onclick="setWeek4Reduced(false)">Normal</button></div>'+
-    '<div class="note">Choose for fatigue and actual training frequency, not the calendar alone. This saved choice sets week-4 targets in Train and backfill. Logged values stay unchanged. Take rest when needed; no catch-up work.</div>';
+    '<div class="note">Pick based on how you feel, not the calendar. Logged sets don’t change.</div>';
 }
 const unitOf=e=>e.unit==="reps"?"":e.unit;
 const sess=()=>S.plan.find(s=>s.id===S.today.sid)||S.plan[0];
@@ -675,33 +695,6 @@ function drawTimer(){
    '<button class="tB" onclick="stopTimer()">Skip</button></div></div>';
 }
 
-/* ── hold stopwatch ── */
-let holdStart=null, holdEx=null, holdTick=null;
-function tickHoldLabel(id,start){
-  const el=document.getElementById(id);
-  if(el&&start)el.textContent="stop "+Math.round((Date.now()-start)/1000)+"s";
-}
-function toggleHold(exId){
-  const e=sess().ex.find(x=>x.id===exId);
-  if(holdEx===exId){
-    const secs=Math.round((Date.now()-holdStart)/1000);
-    clearInterval(holdTick); holdTick=null; holdEx=null; holdStart=null;
-    const arr=(S.today.log[exId]||[]).slice();
-    let i=arr.findIndex(v=>v==null||v===undefined);
-    if(i<0)i=arr.length;
-    arr[i]=secs;
-    S.today.log[exId]=arr;
-    save(); render();
-    startRest(e.rest,e.n+" · hold "+secs+"s");
-  }else{
-    holdEx=exId; holdStart=Date.now();
-    if(holdTick)clearInterval(holdTick);
-    // Update only the stopwatch label, so inputs elsewhere keep their text and focus.
-    holdTick=setInterval(()=>tickHoldLabel("holdBtn",holdStart),500);
-    render();
-  }
-}
-
 /* ── logging ── */
 function logSet(exId,idx,target){
   unlockAudio();
@@ -718,10 +711,10 @@ function nudge(exId,d){
   arr[last]=Math.max(0,arr[last]+d);
   S.today.log[exId]=arr; commit();
 }
-function pickSession(id){ stopTimer(); clearHold(); S.today.sid=id; commit(); }
+function pickSession(id){ stopTimer(); S.today.sid=id; commit(); }
 function pickWeek(w){ S.week=w; commit(); }
 function toggleRice(){ S.today.rice=!S.today.rice; commit(); }
-function clearDay(){ stopTimer(); clearHold(); S.today.log={}; S.today.band={}; commit(); }
+function clearDay(){ stopTimer(); S.today.log={}; S.today.band={}; commit(); }
 function setTodayBand(id,v){ if(!S.today.band)S.today.band={}; S.today.band[id]=v; save(); }
 function cycleAlert(){ const o=["vibrate","sound","off"]; S.alert=o[(o.indexOf(S.alert)+1)%3]; commit(); }
 
@@ -745,7 +738,7 @@ function finish(){
   // Keep older entries; backups include the complete history.
   if(!s.testOnly)S.rot++;
   S.today={date:dayKey(),sid:nextId(),log:{},band:{},rice:S.today.rice};
-  stopTimer(); clearHold(); tab="progress"; commit();
+  stopTimer(); tab="progress"; commit();
 }
 
 /* ── edit ── */
@@ -806,23 +799,6 @@ function bfNudge(exId,d){
   arr[last]=Math.max(0,arr[last]+d);
   bfLog[exId]=arr; render();
 }
-function bfToggleHold(exId){
-  if(bfHoldEx===exId){
-    const secs=Math.round((Date.now()-bfHoldStart)/1000);
-    bfClearHold();
-    const arr=(bfLog[exId]||[]).slice();
-    let i=arr.findIndex(v=>v==null||v===undefined);
-    if(i<0)i=arr.length;
-    arr[i]=secs;
-    bfLog[exId]=arr;
-    render();
-  }else{
-    bfHoldEx=exId; bfHoldStart=Date.now();
-    if(bfHoldTick)clearInterval(bfHoldTick);
-    bfHoldTick=setInterval(()=>tickHoldLabel("bfHoldBtn",bfHoldStart),500);
-    render();
-  }
-}
 function addPast(){
   const d=bfDay();
   const sid=bfSid;
@@ -856,7 +832,7 @@ function addPast(){
   S.history.unshift(entry);
   openHist=-1;
   if(adv){ S.rot++; S.today.sid=nextId(); }
-  bfSid=sid; bfWeek=null; bfLog={}; bfClearHold(); bfResetForm();
+  bfSid=sid; bfWeek=null; bfLog={}; bfResetForm();
   commit();
   toast("Logged "+sid+" \u00b7 next up "+nextId());
 }
@@ -886,16 +862,7 @@ function viewBfExercises(sid,wk){
       h+='<button class="chip'+(on?" on":"")+'" onclick="bfLogSet(\''+e.id+'\','+i+','+tgt+')">'+(on?v+unitOf(e):tgt+unitOf(e))+'</button>';
     }
     h+='</div>';
-    if(done>0||e.unit==="s"){
-      h+='<div class="adj">';
-      if(done>0)h+='<span class="adjL">Fix last</span><button class="adjB" title="Adjust last logged set by one unit" onclick="bfNudge(\''+e.id+'\',-1)">−</button><button class="adjB" title="Adjust last logged set by one unit" onclick="bfNudge(\''+e.id+'\',1)">+</button>';
-      if(e.unit==="s"){
-        const running=bfHoldEx===e.id;
-        const secs=running?Math.round((Date.now()-bfHoldStart)/1000):0;
-        h+='<button class="holdB"'+(running?' id="bfHoldBtn"':'')+' onclick="bfToggleHold(\''+e.id+'\')">'+(running?"stop "+secs+"s":"time a hold")+'</button>';
-      }
-      h+='</div>';
-    }
+    if(done>0)h+='<div class="adj"><span class="adjL">Fix last</span><button class="adjB" title="Adjust last logged set by one unit" onclick="bfNudge(\''+e.id+'\',-1)">−</button><button class="adjB" title="Adjust last logged set by one unit" onclick="bfNudge(\''+e.id+'\',1)">+</button></div>';
     h+='</div>';
   });
   const detail=buildBfDetail(sid);
@@ -1064,8 +1031,8 @@ function applyBackup(text){
   if(!p||!Array.isArray(p.plan)||!p.plan.length||!p.plan.every(s=>s&&s.id&&Array.isArray(s.ex)&&s.ex.every(e=>e&&e.id&&["reps","s","min"].includes(e.unit)))||!p.today||!Array.isArray(p.history)){ alert("Could not read that: not a Bar.Log backup"); return; }
   if(!confirm("Replace everything currently stored with this backup?"))return;
   const fromVersion=Number(p.planVersion||1);
-  stopTimer(); clearHold(); bfClearHold(); bfLog={}; bfResetForm();
-  S=migrate(Object.assign(blank(),p),fromVersion,p.riceRestoreVersion||0,p.handstandPracticeVersion||0); storageBlocked=false;
+  stopTimer(); bfLog={}; bfResetForm();
+  S=migrate(Object.assign(blank(),p),fromVersion,p.riceRestoreVersion||0,p.handstandPracticeVersion||0,p.notesVersion||0); storageBlocked=false;
   historyMode="recent"; historyMonth=""; historySession=""; historyPage=0; openHist=-1; commit();
   toast("Restored");
 }
@@ -1174,7 +1141,7 @@ function viewTrain(ph){
   h+='<div class="sec">Session '+s.id+' · '+esc(s.name)+'</div>';
   if(S.today.date&&S.today.date!==dayKey())h+='<div class="note">Continuing unfinished log dated '+esc(S.today.date)+'. Finish saves that date; you can change it in Progress.</div>';
   if(s.note)h+='<div class="note">'+esc(s.note)+'</div>';
-  h+='<div class="note">A → B → C → D is a flexible rotation, not four consecutive days. Rest between sessions as needed; if shoulder ache returns, stop that movement and reduce the next exposure. Seek assessment for persistent or recurring symptoms.</div>';
+  h+='<div class="note">Rest days as needed. If shoulder ache returns, stop that movement and ease off next time; get it checked if it keeps coming back.</div>';
 
   s.ex.forEach(e=>{
     const cnt=setsFor(e,S.week), tgt=repsFor(e,S.week), log=S.today.log[e.id]||[];
@@ -1188,7 +1155,6 @@ function viewTrain(ph){
       h+='<div class="field"><label>Band</label><input value="'+esc(band)+'" placeholder="color or resistance" oninput="setTodayBand(\''+e.id+'\',this.value)"></div>';
     }
     if(e.progression)h+='<details class="exNote"><summary>When to progress</summary>'+esc(e.progression)+'</details>';
-    if(e.optional)h+='<div class="exNote">Skip freely; no log is needed to finish the session.</div>';
     h+='<div class="chips">';
     for(let i=0;i<Math.max(cnt,log.length);i++){
       if(i>=cnt&&log[i]==null)continue; // Keep completed values visible when reduced targets hide unlogged sets.
@@ -1196,23 +1162,14 @@ function viewTrain(ph){
       h+='<button class="chip'+(on?" on":"")+'" onclick="logSet(\''+e.id+'\','+i+','+tgt+')">'+(on?v+unitOf(e):tgt+unitOf(e))+'</button>';
     }
     h+='</div>';
-    if(done>0||e.unit==="s"){
-      h+='<div class="adj">';
-      if(done>0)h+='<span class="adjL">Fix last</span><button class="adjB" title="Adjust last logged set by one unit" onclick="nudge(\''+e.id+'\',-1)">−</button><button class="adjB" title="Adjust last logged set by one unit" onclick="nudge(\''+e.id+'\',1)">+</button>';
-      if(e.unit==="s"){
-        const running=holdEx===e.id;
-        const secs=running?Math.round((Date.now()-holdStart)/1000):0;
-        h+='<button class="holdB"'+(running?' id="holdBtn"':'')+' onclick="toggleHold(\''+e.id+'\')">'+(running?"stop "+secs+"s":"time a hold")+'</button>';
-      }
-      h+='</div>';
-    }
+    if(done>0)h+='<div class="adj"><span class="adjL">Fix last</span><button class="adjB" title="Adjust last logged set by one unit" onclick="nudge(\''+e.id+'\',-1)">−</button><button class="adjB" title="Adjust last logged set by one unit" onclick="nudge(\''+e.id+'\',1)">+</button></div>';
     h+='</div>';
   });
 
   const any=s.ex.some(e=>(S.today.log[e.id]||[]).some(v=>v!=null));
   h+='<div class="acts"><button class="btn" '+(any?"":"disabled")+' onclick="finish()">Finish session</button>'+
      '<button class="btn ghost" onclick="clearDay()">Clear</button></div>';
-  h+='<div class="note">Tap a chip only after completing the work; it records the target. Use Fix last for actual reps/seconds, or time a hold. Optional work may stay empty. Finishing advances the rotation.</div>';
+  h+='<div class="note">Tap a chip after each set; it logs the target. Use Fix last to correct it. Finishing advances the rotation.</div>';
   return h;
 }
 

@@ -67,11 +67,11 @@ test('A/C handstand blocks have short supported practice and stable doses; other
  for(const sid of ['A','C']){
    const rows=json(`S.plan.find(p=>p.id==='${sid}').ex`);
    assert.equal(rows[1].id,sid.toLowerCase()+'9balance');assert.equal(rows[1].reps,3);assert.equal(rows[1].budget,true);
-   assert.ok(rows[1].note.includes('BOTH HANDS'));assert.equal(rows[2].id,sid.toLowerCase()+'8');
+   assert.ok(rows[1].note.includes('both hands down'));assert.equal(rows[2].id,sid.toLowerCase()+'8');
  }
  assert.equal(run(`S.plan[1].ex.find(e=>e.id==='b3').sets`),5);
  assert.equal(run(`S.plan[1].ex.find(e=>e.id==='b3').reps`),1);
- assert.ok(run(`S.plan[1].ex.find(e=>e.id==='b3').progression.includes('small manual increase')`));
+ assert.ok(run(`S.plan[1].ex.find(e=>e.id==='b3').progression.includes('try a double in one set')`));
  assert.ok(run(`S.plan[1].ex.some(e=>e.id==='b7')&&S.plan[3].ex.some(e=>e.id==='d7')`));
 });
 test('existing v4 receives handstand patch once with preserved logs, dates, rotation, rice and custom notes',()=>{
@@ -125,16 +125,42 @@ test('Train shows the last two results per exercise, newest first, same session 
  run(`S.history.unshift({date:'2026-09-14',sid:'A',detail:[{id:'a8',n:'Renamed lever',unit:'s',sets:[7]}]});S.today.band={};`);
  run(`S.today.sid='A';tab='train';render()`);assert.ok(elements.get('app').innerHTML.includes('Last 14/09</span> 7s'));
 });
-test('running stopwatches update only their label, so typed form values survive',()=>{
- let tickFn=null;context.setInterval=f=>{tickFn=f;return 1};
- run(`S=blank();S.today.sid='A';tab='train';toggleHold('a8')`);assert.ok(tickFn);
- elements.get('app').innerHTML='SENTINEL';elements.set('holdBtn',{textContent:''});
- tickFn();assert.equal(elements.get('app').innerHTML,'SENTINEL');assert.match(elements.get('holdBtn').textContent,/^stop \d+s$/);
- run(`clearHold();bfSid='A';bfToggleHold('a8')`);elements.get('app').innerHTML='SENTINEL';elements.set('bfHoldBtn',{textContent:''});tickFn();
- assert.equal(elements.get('app').innerHTML,'SENTINEL');assert.match(elements.get('bfHoldBtn').textContent,/^stop \d+s$/);
- run('bfClearHold()');context.setInterval=()=>1;
- run(`mxLift='hspu';mxVal='4';mxDate='2026-09-01';tab='progress';render()`);
+test('hold stopwatch is gone; seconds exercises still log and correct by one',()=>{
+ assert.equal(run('typeof toggleHold'),'undefined');assert.equal(run('typeof bfToggleHold'),'undefined');
+ run(`S=blank();S.today.sid='A';tab='train';render()`);assert.ok(!elements.get('app').innerHTML.includes('time a hold'));
+ run(`logSet('a8',0,6);nudge('a8',-1)`);assert.deepEqual(json('S.today.log.a8'),[5]);
+ assert.ok(run('viewTrain(phase(1))').includes('Fix last'));
+});
+test('manual-max form values survive re-renders and reset after saving',()=>{
+ run(`S=blank();mxLift='hspu';mxVal='4';mxDate='2026-09-01';tab='progress';render()`);
  const html=elements.get('app').innerHTML;assert.ok(html.includes('value="hspu" selected')&&html.includes('value="4"')&&html.includes('value="2026-09-01"'));
  run('addMax()');assert.deepEqual(json('S.prs.hspu.at(-1)'),{date:'2026-09-01',value:4});assert.equal(run('mxVal'),'');
+});
+test('saved plans get the shorter notes once; personal edits, doses and records are untouched',()=>{
+ // Rebuild the previous default wording on a saved v4 plan.
+ run(`S=blank();delete S.notesVersion;
+  for(const s of S.plan){s.note=OLD_SESSION_NOTES[s.id][0];for(const e of s.ex){const o=OLD_EX_NOTES[e.id];if(!o)continue;e.note=o.note[0];if(o.progression)e.progression=o.progression[0];}}
+  S.plan[1].ex.find(e=>e.id==='b3').note='My HSPU cue';S.plan[3].note='My D note';S.plan[2].ex.find(e=>e.id==='c3').reps=6;
+  S.history=[{date:'2026-09-01',sid:'A',note:'kept'}];S.rot=7;S.week=3;save()`);
+ const before=json('S');run('load()');
+ assert.equal(run(`S.plan[1].ex.find(e=>e.id==='b3').note`),'My HSPU cue');assert.equal(run('S.plan[3].note'),'My D note');
+ assert.equal(run(`S.plan[2].ex.find(e=>e.id==='c3').reps`),6);
+ assert.equal(run(`S.plan[0].ex.find(e=>e.id==='a8').note`),run(`DEFAULT_PLAN[0].ex.find(e=>e.id==='a8').note`));
+ assert.equal(run(`S.plan[1].ex.find(e=>e.id==='b3').progression`),run(`DEFAULT_PLAN[1].ex.find(e=>e.id==='b3').progression`));
+ assert.equal(run('S.plan[0].note'),run('DEFAULT_PLAN[0].note'));
+ for(const key of ['history','rot','week','today','prs'])assert.deepEqual(json('S.'+key),before[key]);
+ assert.equal(run('S.notesVersion'),1);
+ run(`S.plan[0].ex.find(e=>e.id==='a8').note=OLD_EX_NOTES.a8.note[0];save();load()`);
+ assert.equal(run(`S.plan[0].ex.find(e=>e.id==='a8').note`),run('OLD_EX_NOTES.a8.note[0]'),'runs once only');
+ // Pre-handstand plan: the inserted block and pre-handstand wording both end up short.
+ run(`S=blank();delete S.notesVersion;delete S.handstandPracticeVersion;S.plan[0].ex=S.plan[0].ex.filter(e=>e.id!=='a9balance');S.plan[0].note=PULL_NOTES.A[0];S.plan[1].ex.find(e=>e.id==='b3').progression=HSPU_PROGRESS_BEFORE;save();load()`);
+ assert.equal(run(`S.plan[0].ex.find(e=>e.id==='a9balance').note`),run(`DEFAULT_PLAN[0].ex.find(e=>e.id==='a9balance').note`));
+ assert.equal(run('S.plan[0].note'),run('DEFAULT_PLAN[0].note'));
+ assert.equal(run(`S.plan[1].ex.find(e=>e.id==='b3').progression`),run(`DEFAULT_PLAN[1].ex.find(e=>e.id==='b3').progression`));
+ // Archived plans and backups from before the change.
+ run(`S=blank();S.plan[0].note=OLD_SESSION_NOTES.A[0];S.notesVersion=0;S.planArchives=[archivePlan()];delete S.planArchives[0].notesVersion;restorePlan(0)`);
+ assert.equal(run('S.plan[0].note'),run('DEFAULT_PLAN[0].note'));
+ run(`S=blank();S.plan[0].note=OLD_SESSION_NOTES.A[0];delete S.notesVersion`);context.backupText=run('snapshot()');context.confirm=()=>true;run('applyBackup(backupText)');context.confirm=()=>false;
+ assert.equal(run('S.plan[0].note'),run('DEFAULT_PLAN[0].note'));
 });
 console.log(`${passed} regression groups passed.`);
