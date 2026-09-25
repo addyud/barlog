@@ -53,7 +53,19 @@ button{font-family:inherit}
 .sessL{font-family:var(--disp);font-weight:700;font-size:22px;line-height:1;color:var(--chalk)}
 .sess.on .sessL{color:var(--sodium)}
 .sessN{font-family:var(--mono);font-size:9px;letter-spacing:.04em;text-transform:uppercase;color:var(--galv);text-align:center;line-height:1.3}
-.dot{position:absolute;top:-5px;right:-5px;width:7px;height:7px;border-radius:50%;background:var(--sodium)}
+.trainingDay{display:flex;align-items:center;gap:18px;margin-top:20px;padding:20px 18px;border:1px solid var(--sodium-dim);border-left:4px solid var(--sodium);border-radius:4px;background:var(--steel)}
+.trainingLetter{flex:0 0 auto;font-family:var(--disp);font-size:64px;font-weight:700;line-height:1;color:var(--sodium)}
+.trainingInfo{min-width:0}
+.trainingLabel{font-family:var(--mono);font-size:12px;color:var(--galv);text-transform:uppercase;letter-spacing:.1em}
+.trainingName{margin:4px 0 6px;font-family:var(--disp);font-size:28px;font-weight:600;line-height:1.1;overflow-wrap:anywhere}
+.trainingStatus{font-size:12px;color:var(--galv);line-height:1.4}
+.workoutChoice{margin-top:8px}
+.workoutChoice summary{display:list-item;width:fit-content;cursor:pointer;padding:10px 0;color:var(--galv);font-size:13px}
+.workoutOptions{display:grid;gap:8px;margin:8px 0 16px}
+.workoutOption{padding:13px 12px;background:var(--steel);border:1px solid var(--steel-hi);border-radius:3px;text-align:left;color:var(--chalk);font-size:14px;line-height:1.4}
+.workoutOption:disabled{opacity:.55}
+.workoutChoice summary:focus-visible,.workoutOption:focus-visible{outline:2px solid var(--sodium);outline-offset:3px}
+
 
 .daily{margin:16px 0 2px;padding:11px 13px;background:var(--steel);border-left:2px solid var(--sodium-dim);border-radius:2px;display:flex;align-items:center;gap:11px}
 .daily.on{border-left-color:var(--sodium)}
@@ -509,7 +521,7 @@ const DEFAULT_PLAN = [
         "reps": 1,
         "unit": "reps",
         "rest": 300,
-        "note": "Freestanding. Stop at the last clean rep, then fix the chip to your count.",
+        "note": "Freestanding. Stop at the last clean rep and enter your actual count.",
         "amrap": true,
         "optional": true,
         "pr": "hspu"
@@ -535,7 +547,7 @@ const DEFAULT_PLAN = [
         "reps": 1,
         "unit": "reps",
         "rest": 300,
-        "note": "Stop at the last clean rep, then fix the chip to your count.",
+        "note": "Stop at the last clean rep and enter your actual count.",
         "amrap": true,
         "optional": true,
         "pr": "pullup"
@@ -631,13 +643,6 @@ function refreshDraftDate(){
     S.today.date=dayKey();S.today.rice=false;
   }
 }
-function setCalendarStart(value){
-  if(dateNumber(value)==null||value>dayKey()){alert("Choose a valid start date no later than today.");return;}
-  const previous=JSON.parse(JSON.stringify(S.calendar));
-  S.calendar={startDate:value,source:"chosen"};
-  if(!save()){S.calendar=previous;render();return;}
-  render();toast("Calendar updated. Workout dates and sets kept.");
-}
 function setTargetMode(value){
   if(!["normal","reduced"].includes(value))return;
   const previous=S.targetMode;S.targetMode=value;
@@ -651,18 +656,14 @@ function targetControl(){
 }
 function viewCalendar(){
   const w=calendarWeek(dayKey()), start=w==null?S.calendar.startDate:datePlus(S.calendar.startDate,(w-1)*7);
-  return '<div class="lbl">Calendar · '+esc(weekText(dayKey()))+'</div><div class="note">'+esc(start)+' to '+esc(datePlus(start,6))+'. Weeks advance automatically every seven days.</div>'+
-    '<details class="note"><summary>Calendar start: '+esc(S.calendar.startDate)+'</summary>'+
-    '<p>'+(S.calendar.source==='earliest-log'?'Initially based on your earliest saved workout. ':'')+'Changing this date relabels calendar weeks only. Original logged week labels remain in workout details. Routine changes never reset it.</p>'+
-    '<div class="field"><label for="calendarStart">Start</label><input id="calendarStart" type="date" max="'+dayKey()+'" value="'+esc(S.calendar.startDate)+'"></div>'+
-    '<button class="btn ghost" onclick="setCalendarStart(document.getElementById(\'calendarStart\').value)">Save start date</button></details>';
+  return '<div class="lbl">Calendar · '+esc(weekText(dayKey()))+'</div><div class="note">'+esc(start)+' to '+esc(datePlus(start,6))+'. Weeks advance automatically every seven days.</div>';
 }
 
 /* ── state ── */
 let S=null, tab="train", timer=null, tick=null, ac=null, editSess="A", openHist=-1, bfSid="A", bfLog={};
 /* Keep backfill fields across chip taps, date changes and re-renders. */
 let bfDate=null, bfReps="", bfSecs="", bfNote="", bfRice=false, bfAdv=null, bfTargetMode="normal";
-let openPr=null;
+let openPr=null, pendingSession=null;
 /* manual-max form fields, kept across re-renders like the backfill form */
 let mxLift="pullup", mxVal="", mxDate=null;
 let historyMode="recent", historyMonth="", historySession="", historyPage=0;
@@ -759,6 +760,14 @@ function updateCalendarCopy(plan){
   if(p&&[OLD_SESSION_NOTES.T[0],"Optional, week 8. Pick one benchmark and do it fresh; skip the others."].includes(p.note))
     p.note="Optional. Pick one benchmark and do it fresh; skip the others.";
 }
+function updateBenchmarkEntryCopy(plan){
+  for(const id of ['t3','t2']){
+    const e=plan.find(p=>p.id==='T')?.ex.find(e=>e.id===id);
+    const old=(id==='t3'?'Freestanding. ':'')+'Stop at the last clean rep, then fix the chip to your count.';
+    if(e&&[old,...OLD_EX_NOTES[id].note].includes(e.note))
+      e.note=DEFAULT_PLAN.find(p=>p.id==='T').ex.find(e=>e.id===id).note;
+  }
+}
 // Update only earlier default deficit cues; keep personal notes and doses intact.
 function updateDeficitDescent(plan){
   const session=plan.find(p=>p.id==="B");
@@ -775,6 +784,7 @@ const PLAN_PATCHES=[
   {key:"rebalanceVersion",v4Only:true,apply:rebalancePlan},
   {key:"deficitDescentVersion",v4Only:true,apply:updateDeficitDescent},
   {key:"calendarCopyVersion",v4Only:false,apply:updateCalendarCopy},
+  {key:"benchmarkEntryVersion",v4Only:false,apply:updateBenchmarkEntryCopy},
 ];
 function patchFlags(value){ return Object.fromEntries(PLAN_PATCHES.map(p=>[p.key,value(p.key)])); }
 // `saved` is the stored record (state, backup or archive) whose flags say what already ran.
@@ -907,6 +917,28 @@ function drawTimer(){
 }
 
 /* ── logging ── */
+// Benchmark entries are measured results, never preset targets.
+function benchmarkField(e,idx,value,past){
+  const id=(past?'past-':'today-')+e.id+'-'+idx;
+  return '<div class="field"><label for="'+esc(id)+'">'+(e.unit==='reps'?'Reps':'Seconds')+'</label>'+
+    '<input id="'+esc(id)+'" aria-label="'+esc(e.n)+' result '+(idx+1)+'" type="number" min="0" step="'+(e.unit==='reps'?'1':'any')+'" inputmode="'+(e.unit==='reps'?'numeric':'decimal')+'" placeholder="Your result" value="'+(value==null?'':value)+'" oninput="recordBenchmark(\''+e.id+'\','+idx+',this.value,'+past+')"></div>';
+}
+function recordBenchmark(exId,idx,raw,past){
+  const plan=past?S.plan.find(p=>p.id===bfSid):sess();
+  const e=plan&&plan.ex.find(e=>e.id===exId);if(!e||!e.amrap)return;
+  const n=Number(raw), valid=raw.trim()!==''&&Number.isFinite(n)&&n>=0&&(e.unit!=='reps'||Number.isInteger(n));
+  const log=past?bfLog:S.today.log, previous=JSON.parse(JSON.stringify(log));
+  if(!past)refreshDraftDate();
+  const arr=(log[exId]||[]).slice();arr[idx]=valid?n:null;log[exId]=arr;
+  if(!past){
+    if(!save()){S.today.log=previous;render();return;}
+    const finishButton=document.getElementById('finishSession');
+    if(finishButton)finishButton.disabled=!sess().ex.some(e=>(S.today.log[e.id]||[]).some(v=>v!=null));
+  }else{
+    const totals=document.getElementById('bfTotals');
+    if(totals){const t=sumDetail(buildBfDetail(bfSid));totals.textContent=t.reps+' reps · '+t.secs+'s';}
+  }
+}
 function logSet(exId,idx,target){
   refreshDraftDate();
   unlockAudio();
@@ -923,7 +955,25 @@ function nudge(exId,d){
   arr[last]=Math.max(0,arr[last]+d);
   S.today.log[exId]=arr; commit();
 }
-function pickSession(id){ stopTimer(); S.today.sid=id; commit(); }
+function pickSession(id){
+  const chosen=S.plan.find(p=>p.id===id);
+  if(!chosen||id===S.today.sid)return;
+  if(hasDraft()){toast('Finish or clear this workout before changing. Your sets are kept.');return;}
+  pendingSession=id;render();
+  document.getElementById('confirmWorkout')?.focus?.();
+}
+function cancelSessionChange(){
+  pendingSession=null;render();document.getElementById('changeWorkout')?.focus?.();
+}
+function confirmSessionChange(){
+  const chosen=S.plan.find(p=>p.id===pendingSession);
+  if(!chosen||hasDraft()){cancelSessionChange();return;}
+  const previous=JSON.parse(JSON.stringify(S.today));
+  S.today.sid=chosen.id;S.today.selectionConfirmed=true;
+  if(!save()){S.today=previous;render();return;}
+  pendingSession=null;stopTimer();render();
+  document.getElementById('workoutTitle')?.focus?.();
+}
 function toggleRice(){ S.today.rice=!S.today.rice; commit(); }
 function clearDay(){ stopTimer(); S.today.log={}; S.today.band={}; commit(); }
 function setTodayBand(id,v){ if(!S.today.band)S.today.band={}; S.today.band[id]=v; save(); }
@@ -932,6 +982,7 @@ function cycleAlert(){ const o=["vibrate","sound","off"]; S.alert=o[(o.indexOf(S
 function finish(){
   refreshDraftDate();
   const s=sess(), log=S.today.log;
+  const before=JSON.parse(JSON.stringify(S));
   if(!s.ex.some(e=>(log[e.id]||[]).some(v=>typeof v==="number")))return;
   let reps=0, secs=0;
   const detail=[];
@@ -951,7 +1002,8 @@ function finish(){
   // Keep older entries; backups include the complete history.
   if(!s.testOnly)advanceAfter(s.id);
   S.today={date:dayKey(),sid:nextId(),log:{},band:{},rice:S.today.rice};
-  stopTimer(); tab="progress"; commit();
+  if(!save()){S=before;render();return;}
+  pendingSession=null;stopTimer(); tab="progress"; render();
 }
 
 /* ── edit ── */
@@ -1067,7 +1119,7 @@ function bfRotHint(){
 function viewBfExercises(sid,wk){
   const plan=S.plan.find(p=>p.id===sid); if(!plan)return"";
   let h='<div class="bfSub"><span>Exercise log</span><button class="miniB" onclick="bfClearLog()">clear</button></div>'+
-     '<div class="note" style="margin-top:0;margin-bottom:10px">Tap a chip to log at target. Tap again to clear.</div><div class="bfBlock">';
+     '<div class="note" style="margin-top:0;margin-bottom:10px">Enter actual benchmark results. For other exercises, tap a chip to log at target; tap again to clear.</div><div class="bfBlock">';
   plan.ex.forEach(e=>{
     const cnt=setsFor(e,wk,bfTargetMode), tgt=repsFor(e,wk,bfTargetMode), log=bfLog[e.id]||[];
     const done=log.filter(v=>v!=null).length;
@@ -1077,17 +1129,18 @@ function viewBfExercises(sid,wk){
     for(let i=0;i<Math.max(cnt,log.length);i++){
       if(i>=cnt&&log[i]==null)continue; // Keep completed values visible when reduced targets hide unlogged sets.
       const v=log[i], on=v!=null;
+      if(e.amrap){h+=benchmarkField(e,i,v,true);continue;}
       h+='<button class="chip'+(on?" on":"")+'" onclick="bfLogSet(\''+e.id+'\','+i+','+tgt+')">'+(on?v+unitOf(e):tgt+unitOf(e))+'</button>';
     }
     h+='</div>';
-    if(done>0)h+='<div class="adj"><span class="adjL">Fix last</span><button class="adjB" title="Adjust last logged set by one unit" onclick="bfNudge(\''+e.id+'\',-1)">−</button><button class="adjB" title="Adjust last logged set by one unit" onclick="bfNudge(\''+e.id+'\',1)">+</button></div>';
+    if(done>0&&!e.amrap)h+='<div class="adj"><span class="adjL">Fix last</span><button class="adjB" title="Adjust last logged set by one unit" onclick="bfNudge(\''+e.id+'\',-1)">−</button><button class="adjB" title="Adjust last logged set by one unit" onclick="bfNudge(\''+e.id+'\',1)">+</button></div>';
     h+='</div>';
   });
   const detail=buildBfDetail(sid);
-  if(detail.length){
+  {
     const t=sumDetail(detail);
     const bits=[]; if(t.reps)bits.push(t.reps+" reps"); if(t.secs)bits.push(t.secs+"s");
-    h+='<div class="bfTotals">'+bits.join(" · ")+'</div>';
+    h+='<div id="bfTotals" class="bfTotals">'+bits.join(" · ")+'</div>';
   }
   return h+'</div>';
 }
@@ -1316,7 +1369,7 @@ function render(){
 
   el.innerHTML=h;
 }
-function go(t){ tab=t; render(); }
+function go(t){ pendingSession=null;tab=t; render(); }
 
 // Most recent logged results for this exercise in this session, newest first.
 // Older records have no exercise ID, so they match on name and unit instead.
@@ -1342,17 +1395,21 @@ function viewLast(sid,e){
 
 function viewTrain(ph){
   const s=sess(), nid=nextId();
-  let h=viewCalendar()+targetControl();
-
-  h+='<div class="sessions">';
-  S.plan.forEach(p=>{
-    if(p.testOnly)return;
-    h+='<div class="sesswrap"><button class="sess'+(s.id===p.id?" on":"")+'" onclick="pickSession(\''+p.id+'\')">'+
-       '<span class="sessL">'+p.id+'</span><span class="sessN">'+esc(p.name)+'</span></button>'+
-       (p.id===nid&&s.id!==p.id?'<span class="dot"></span>':'')+'</div>';
-  });
-  h+='</div>'+S.plan.filter(p=>p.testOnly).map(p=>'<button class="btn ghost" style="margin-top:8px" onclick="pickSession(\''+p.id+'\')">Optional benchmarks</button>').join('');
-  h+='<div class="note">'+(s.id===nid?"Next in the rotation.":"Rotation says "+nid+" next. Dot marks it.")+'</div>';
+  let h='<section class="trainingDay" aria-label="Current workout"><div class="trainingLetter" aria-hidden="true">'+esc(s.id)+'</div><div class="trainingInfo">'+
+    '<div class="trainingLabel">'+(s.testOnly?'Benchmark':'Today’s workout')+'</div><h1 id="workoutTitle" class="trainingName" tabindex="-1">'+esc(s.id)+' · '+esc(s.name)+'</h1>'+
+    '<div class="trainingStatus">'+(s.testOnly?'Optional · '+esc(nid)+' is next in A–D':s.id===nid?'Next in your A–D rotation':'Chosen workout · rotation was on '+esc(nid))+'</div></div></section>';
+  h+='<details class="workoutChoice"'+(pendingSession?' open':'')+'><summary id="changeWorkout">Change workout</summary>';
+  const chosen=S.plan.find(p=>p.id===pendingSession);
+  if(chosen){
+    h+='<div role="group" aria-label="Confirm workout change"><p>Switch to <strong>'+esc(chosen.id)+' · '+esc(chosen.name)+'</strong>?</p>'+
+      '<div class="note">'+(chosen.testOnly?'This benchmark will not advance your A–D rotation.':'Finishing it will select the following workout in A–D.')+'</div>'+
+      '<div class="acts"><button id="confirmWorkout" class="btn" onclick="confirmSessionChange()">Switch to '+esc(chosen.id)+'</button><button class="btn ghost" onclick="cancelSessionChange()">Keep '+esc(s.id)+'</button></div></div>';
+  }else{
+    h+='<div class="workoutOptions">'+S.plan.map(p=>'<button class="workoutOption" '+(p.id===s.id?'disabled ':'')+'onclick="pickSession(\''+p.id+'\')">'+esc(p.id)+' · '+esc(p.name)+(p.id===s.id?' · selected':p.id===nid?' · next':'')+'</button>').join('')+'</div>';
+    if(hasDraft())h+='<div class="note">Finish or clear this workout before changing. Your logged sets stay with this workout.</div>';
+  }
+  h+='</details>';
+  h+=viewCalendar()+targetControl();
 
   /* Daily rice tracking is available with every routine. */
   h+='<div class="daily'+(S.today.rice?" on":"")+'" onclick="toggleRice()"><span class="box">'+(S.today.rice?"✓":"")+'</span>'+
@@ -1380,17 +1437,18 @@ function viewTrain(ph){
     for(let i=0;i<Math.max(cnt,log.length);i++){
       if(i>=cnt&&log[i]==null)continue; // Keep completed values visible when reduced targets hide unlogged sets.
       const v=log[i], on=v!=null;
+      if(e.amrap){h+=benchmarkField(e,i,v,false);continue;}
       h+='<button class="chip'+(on?" on":"")+'" onclick="logSet(\''+e.id+'\','+i+','+tgt+')">'+(on?v+unitOf(e):tgt+unitOf(e))+'</button>';
     }
     h+='</div>';
-    if(done>0)h+='<div class="adj"><span class="adjL">Fix last</span><button class="adjB" title="Adjust last logged set by one unit" onclick="nudge(\''+e.id+'\',-1)">−</button><button class="adjB" title="Adjust last logged set by one unit" onclick="nudge(\''+e.id+'\',1)">+</button></div>';
+    if(done>0&&!e.amrap)h+='<div class="adj"><span class="adjL">Fix last</span><button class="adjB" title="Adjust last logged set by one unit" onclick="nudge(\''+e.id+'\',-1)">−</button><button class="adjB" title="Adjust last logged set by one unit" onclick="nudge(\''+e.id+'\',1)">+</button></div>';
     h+='</div>';
   });
 
   const any=s.ex.some(e=>(S.today.log[e.id]||[]).some(v=>v!=null));
-  h+='<div class="acts"><button class="btn" '+(any?"":"disabled")+' onclick="finish()">Finish session</button>'+
+  h+='<div class="acts"><button id="finishSession" class="btn" '+(any?"":"disabled")+' onclick="finish()">Finish session</button>'+
      '<button class="btn ghost" onclick="clearDay()">Clear</button></div>';
-  h+='<div class="note">Tap a chip after each set; it logs the target. Use Fix last to correct it. Finishing advances the rotation.</div>';
+  h+='<div class="note">'+(s.testOnly?'Enter your actual result. Leave untested exercises blank. Finishing keeps your A–D rotation unchanged.':'Tap a chip after each set; it logs the target. Use Fix last to correct it. Finishing advances the rotation.')+'</div>';
   return h;
 }
 
@@ -1508,7 +1566,7 @@ function viewEdit(){
     h+='<div class="editEx">'+
       '<div class="field"><label>Name</label><input value="'+esc(e.n)+'" onchange="editField(\''+s.id+'\',\''+e.id+'\',\'n\',this.value)"></div>'+
       '<div class="field"><label>Sets</label><input type="number" step="1" inputmode="numeric" value="'+e.sets+'" onchange="editField(\''+s.id+'\',\''+e.id+'\',\'sets\',this.value)">'+
-      '<label style="width:38px">Reps</label><input type="number" step="1" inputmode="numeric" value="'+e.reps+'" onchange="editField(\''+s.id+'\',\''+e.id+'\',\'reps\',this.value)"></div>'+
+      (e.amrap?'':'<label style="width:38px">Reps</label><input type="number" step="1" inputmode="numeric" value="'+e.reps+'" onchange="editField(\''+s.id+'\',\''+e.id+'\',\'reps\',this.value)">')+'</div>'+
       '<div class="field"><label>Unit</label><select onchange="editField(\''+s.id+'\',\''+e.id+'\',\'unit\',this.value)">'+
         ["reps","s","min"].map(u=>'<option value="'+u+'"'+(e.unit===u?" selected":"")+'>'+u+'</option>').join("")+'</select>'+
       '<label style="width:38px">Rest</label><input type="number" step="1" inputmode="numeric" value="'+e.rest+'" onchange="editField(\''+s.id+'\',\''+e.id+'\',\'rest\',this.value)"></div>'+
@@ -1555,7 +1613,8 @@ function setEdit(id){ editSess=id; render(); }
 
 /* ── boot ── */
 load();
-if(S.today.date!==dayKey()&&!Object.values(S.today.log).some(a=>a.some(v=>v!=null)))S.today={date:dayKey(),sid:nextId(),log:{},band:{},rice:false};
+if(!hasDraft()&&!S.today.selectionConfirmed)S.today.sid=nextId();
+refreshDraftDate();
 bfSid=S.today.sid;
 save();
 render();

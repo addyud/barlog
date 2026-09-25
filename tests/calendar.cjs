@@ -22,7 +22,7 @@ test('week boundaries are seven calendar days, with DST, leap days, invalid date
  for(const [start,date,w] of [['2026-08-18','2026-08-24',1],['2026-08-18','2026-08-25',2],['2026-03-07','2026-03-14',2],['2026-10-31','2026-11-07',2],['2028-02-25','2028-03-03',2],['2026-08-18','2026-10-13',9]])assert.equal(a.run(`calendarWeek('${date}','${start}')`),w);
  for(const d of ['2026-02-30','2026-13-01','bad','2026-2-3'])assert.equal(a.run(`dateNumber('${d}')`),null);
  assert.equal(a.run("calendarWeek('2026-08-17','2026-08-18')"),null);
- a.run("setCalendarStart('2026-08-18')");const cal=a.json('S.calendar');a.run("setCalendarStart('2027-01-01')");assert.deepEqual(a.json('S.calendar'),cal);
+ assert.ok(!a.run("viewCalendar()").includes("calendarStart"));
 });
 test('routine adoption, archive restore, export and import keep the calendar and target mode',()=>{
  const a=boot(legacy());a.run("setTargetMode('reduced')");const cal=a.json('S.calendar'),hist=a.json('S.history');
@@ -60,7 +60,7 @@ test('backfill target choice cannot change the live workout targets',()=>{
  const a=boot(legacy());a.run("setBfTargets('reduced')");assert.equal(a.run('S.targetMode'),'normal');assert.equal(a.run('bfTargetMode'),'reduced');
  a.run("setTargetMode('reduced');setBfTargets('normal')");assert.equal(a.run('S.targetMode'),'reduced');
 });
-test('failed storage saves roll back calendar and target changes',()=>{
- const a=boot(legacy()),before=a.json('S');a.fail(true);a.run("setCalendarStart('2026-08-01');setTargetMode('reduced')");assert.deepEqual(a.json('S'),before);
+test('failed storage saves roll back target changes',()=>{
+ const a=boot(legacy()),before=a.json('S');a.fail(true);a.run("setTargetMode('reduced')");assert.deepEqual(a.json('S'),before);
 });
 console.log(`${passed} calendar groups passed.`);
