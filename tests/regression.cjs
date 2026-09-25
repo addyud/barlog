@@ -217,4 +217,19 @@ test('OAHS: D is the one-arm session, fingertip holds lead to lifts; saved plans
  assert.equal(run(`S.plan[3].ex.find(e=>e.id==='d8shifts').n`),'OAHS straddle shifts');
  assert.equal(run(`S.plan[2].ex.find(e=>e.id==='c9balance').n`),'My handstand block','personal name kept');
 });
+test('deficit HSPU: two optional slow-descent singles; saved cues update without changing logs or personal edits',()=>{
+ run(`S=blank();S.today.sid='B';tab='train';render()`);
+ const ex=json(`S.plan[1].ex.find(e=>e.id==='b4free')`);
+ assert.equal(ex.sets,2);assert.equal(ex.reps,1);assert.equal(ex.rest,180);assert.equal(ex.optional,true);
+ assert.ok(ex.note.startsWith('2 singles with a slow, controlled descent.'));
+ const old="0–2 clean singles on bars, only if you're still fresh after the regular HSPUs. No wall.";
+ run(`delete S.deficitDescentVersion;S.plan[1].ex.find(e=>e.id==='b4free').note=${JSON.stringify(old)};S.today.log.b4free=[1];S.history=[{sid:'B',date:'2026-09-24',detail:[{id:'b4free',sets:[1,1]}]}];save()`);
+ const before=json('S');run('load()');
+ assert.equal(run(`S.plan[1].ex.find(e=>e.id==='b4free').note`),ex.note);
+ for(const k of ['today','history','prs','week','rot'])assert.deepEqual(json('S.'+k),before[k]);
+ run(`S.plan[1].ex.find(e=>e.id==='b4free').note='My cue';delete S.deficitDescentVersion;save();load()`);
+ assert.equal(run(`S.plan[1].ex.find(e=>e.id==='b4free').note`),'My cue');
+ run(`S.plan[1].ex.find(e=>e.id==='b4free').note=${JSON.stringify(old)};save();load()`);
+ assert.equal(run(`S.plan[1].ex.find(e=>e.id==='b4free').note`),old,'migration runs only once');
+});
 console.log(`${passed} regression groups passed.`);

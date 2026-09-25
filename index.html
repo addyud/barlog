@@ -243,7 +243,7 @@ const DEFAULT_PLAN = [
         "reps": 1,
         "unit": "reps",
         "rest": 180,
-        "note": "0–2 clean singles on bars, only if you're still fresh after the regular HSPUs. No wall.",
+        "note": "2 singles with a slow, controlled descent. Only if you're still fresh after the regular HSPUs. No wall.",
         "optional": true,
         "progression": "Add depth or reps only after clean sessions, and not at the same time as adding regular HSPU work."
       },
@@ -701,6 +701,13 @@ function rebalancePlan(plan){
     session.ex.splice(at,0,ex);
   }
 }
+// Update only earlier default deficit cues; keep personal notes and doses intact.
+function updateDeficitDescent(plan){
+  const session=plan.find(p=>p.id==="B");
+  const ex=session&&session.ex.find(e=>e.id==="b4free");
+  const previous=["0–2 clean singles on bars, only if you're still fresh after the regular HSPUs. No wall.",...OLD_EX_NOTES.b4free.note];
+  if(ex&&previous.includes(ex.note))ex.note=DEFAULT_PLAN.find(p=>p.id==="B").ex.find(e=>e.id==="b4free").note;
+}
 // One-time repairs for saved plans, applied in order. Each stores its key once it has run,
 // so later deliberate edits stick. v4Only patches leave older, unadopted routines alone.
 const PLAN_PATCHES=[
@@ -708,6 +715,7 @@ const PLAN_PATCHES=[
   {key:"handstandPracticeVersion",v4Only:true,apply:addHandstandPractice},
   {key:"notesVersion",v4Only:false,apply:trimNotes},
   {key:"rebalanceVersion",v4Only:true,apply:rebalancePlan},
+  {key:"deficitDescentVersion",v4Only:true,apply:updateDeficitDescent},
 ];
 function patchFlags(value){ return Object.fromEntries(PLAN_PATCHES.map(p=>[p.key,value(p.key)])); }
 // `saved` is the stored record (state, backup or archive) whose flags say what already ran.
