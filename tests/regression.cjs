@@ -10,11 +10,11 @@ const context=vm.createContext({console:{...console,error(){}},Date,JSON,Math,Se
 vm.runInContext(source,context);
 const run=s=>vm.runInContext(s,context), json=s=>JSON.parse(run(`JSON.stringify(${s})`));
 let passed=0; function test(name,f){f();passed++;console.log(`PASS ${name}`)}
-test('new install and every session render across all eight weeks',()=>{assert.equal(run('KEY'),storageKey);for(let w=1;w<=8;w++){run(`S.week=${w}`);for(const sid of ['A','B','C','D','T']){run(`S.today.sid='${sid}';render();viewEdit();viewProgress();viewData()`);assert.ok(elements.get('app').innerHTML.includes('Bar'));}}});
-test('fixed doses, safe week-four reduction and exercise-specific progression',()=>{for(let w=1;w<=8;w++){assert.equal(run(`repsFor(DEFAULT_PLAN[0].ex.find(e=>e.id==='a8'),${w})`),6);assert.equal(run(`repsFor(DEFAULT_PLAN[1].ex[1],${w})`),1);assert.equal(run(`setsFor(DEFAULT_PLAN[0].ex.find(e=>e.id==='a3'),${w})`),w===4?3:5);}assert.equal(run(`repsFor(DEFAULT_PLAN[3].ex.find(e=>e.id==='d8shifts'),4)`),2);assert.ok(!run('viewTrain(phase(6))').includes('Slow the eccentric'));assert.equal(run('DEFAULT_PLAN[1].ex[2].id'),'b4free');assert.ok(run('DEFAULT_PLAN[1].ex[2].optional'));});
+test('new install and every session render across eight calendar weeks',()=>{assert.equal(run('KEY'),storageKey);for(let w=1;w<=8;w++){run(`S.week=${w};S.calendar.startDate=datePlus(dayKey(),-(${w}-1)*7)`);for(const sid of ['A','B','C','D','T']){run(`S.today.sid='${sid}';render();viewEdit();viewProgress();viewData()`);assert.ok(elements.get('app').innerHTML.includes('Bar'));}}});
+test('fixed doses, safe week-four reduction and exercise-specific progression',()=>{for(let w=1;w<=8;w++){assert.equal(run(`repsFor(DEFAULT_PLAN[0].ex.find(e=>e.id==='a8'),${w})`),6);assert.equal(run(`repsFor(DEFAULT_PLAN[1].ex[1],${w})`),1);assert.equal(run(`setsFor(DEFAULT_PLAN[0].ex.find(e=>e.id==='a3'),${w})`),5);}assert.equal(run(`repsFor(DEFAULT_PLAN[3].ex.find(e=>e.id==='d8shifts'),4)`),3);assert.ok(!run('viewTrain(phase(6))').includes('Slow the eccentric'));assert.equal(run('DEFAULT_PLAN[1].ex[2].id'),'b4free');assert.ok(run('DEFAULT_PLAN[1].ex[2].optional'));});
 test('legacy/custom plan load is not rewritten; adoption, undo and backup preserve records and unfinished work',()=>{run(`S=blank();S.planVersion=1;S.plan[0].ex[0].n='Custom warm up';S.plan[0].ex.push({id:'a4',n:'Custom MU',tier:'skill',sets:7,reps:2,unit:'reps',rest:60});S.today={date:'2026-01-01',sid:'A',log:{a4:[2]},band:{a4:'red'},rice:true};S.history=[{date:'2026-01-01',sid:'A',week:2,note:'kept',detail:[{n:'Original',unit:'reps',sets:[2],band:'red'}]}];S.prs.hspu=[{date:'2026-01-01',value:2}];save()`);const original=json('S');run('load()');assert.deepEqual(json('S.plan'),original.plan);assert.equal(run('S.planVersion'),1);run('switchPlan()');assert.equal(run('S.planVersion'),4);assert.deepEqual(json('S.history'),original.history);assert.deepEqual(json('S.prs'),original.prs);assert.deepEqual(json('S.planArchives[0].today'),original.today);run('restorePlan(0)');assert.deepEqual(json('S.plan'),original.plan);assert.deepEqual(json('S.today'),original.today);assert.deepEqual(JSON.parse(run('snapshot()')).history,original.history);});
 test('adoption storage failure leaves original state intact',()=>{const before=json('S');failSave=true;run('switchPlan()');failSave=false;assert.deepEqual(json('S'),before)});
-test('logging optional skip, one-second adjustment, history retention beyond 300 and rotation',()=>{run(`S=blank();S.today.sid='B';S.history=Array.from({length:320},(_,i)=>({date:'2025-01-01',sid:'A',note:String(i)}));logSet('b3',0,1);finish()`);assert.equal(run('S.history.length'),321);assert.equal(run('S.history[0].reps'),1);assert.equal(run('S.history[0].detail.length'),1);assert.equal(run('S.rot'),1);run(`S.today.sid='A';logSet('a8',0,6);nudge('a8',-1)`);assert.deepEqual(json('S.today.log.a8'),[5]);});
+test('logging optional skip, one-second adjustment, history retention beyond 300 and rotation',()=>{run(`S=blank();S.today.sid='B';S.history=Array.from({length:320},(_,i)=>({date:'2025-01-01',sid:'A',note:String(i)}));logSet('b3',0,1);finish()`);assert.equal(run('S.history.length'),321);assert.equal(run('S.history[0].reps'),1);assert.equal(run('S.history[0].detail.length'),1);assert.equal(run('S.rot'),2);run(`S.today.sid='A';logSet('a8',0,6);nudge('a8',-1)`);assert.deepEqual(json('S.today.log.a8'),[5]);});
 test('recent rows sort chronologically, keep same-day order and never mutate stored ordering',()=>{run(`S.history=[{date:'2026-08-01',sid:'B',note:'old'},{date:'2026-09-10',sid:'A',note:'same1'},{date:'2026-09-10',sid:'C',note:'same2'},...Array.from({length:24},(_,i)=>({date:'2026-09-'+String(i+1).padStart(2,'0'),sid:i%2?'A':'D',note:'r'+i}))];historyMode='recent'`);const before=json('S.history');assert.equal(run('historyWindow().rows.length'),5);assert.deepEqual(json('historyRows().filter(x=>x.record.date===\'2026-09-10\').map(x=>x.record.note)'),['same1','same2','r9']);run('viewHistory()');assert.deepEqual(json('S.history'),before);});
 test('filtered pagination targets actual source record for date edit and delete',()=>{run(`historyMode='browse';historySession='A';historyMonth='2026-09';historyPage=1`);const rows=json('historyWindow().rows');assert.ok(rows.length);const i=rows[0].index;const before=json('S.history');run(`setHistDate(${i},'2026-07-04')`);assert.equal(run(`S.history[${i}].date`),'2026-07-04');assert.equal(run(`S.history[${i}].note`),before[i].note);assert.equal(run('historyWindow().total'),12);context.confirm=()=>true;const idx=run('historyWindow().rows[0].index');const deleted=run(`S.history[${idx}].note`);run(`delHist(${idx})`);assert.ok(!json('S.history').some(r=>r.note===deleted));context.confirm=()=>false;});
 test('page clamps after deletion; empty filters and return to recent remain coherent',()=>{run(`S.history=[{date:'2026-09-01',sid:'A'}];historyPage=99;historyMonth='2026-09';historySession='A'`);assert.equal(run('historyWindow().pages'),1);assert.equal(run('historyPage'),0);run(`historySession='Z'`);assert.ok(run('viewHistory()').includes('No workouts match'));run('browseHistory(false)');assert.equal(run('historyWindow().rows.length'),1);});
@@ -93,20 +93,20 @@ test('manual handstands, unknown custom sequences, archived plans and old backup
  context.backupText=run('snapshot()');context.confirm=()=>true;run('applyBackup(backupText)');context.confirm=()=>false;
  assert.equal(run('S.reducedWeek4'),false);assert.equal(run(`S.plan[2].ex.filter(e=>e.id==='c9balance').length`),1);
 });
-test('week4 normal/reduced choice preserves and displays all logs, survives backup/restore, and affects no other weeks',()=>{
- run(`S=blank();S.week=4;S.today.sid='A';S.today.log={a8:[6,5,6,5,4],a9balance:[3]};bfSid='A';bfLog={a8:[6,6,5,4,3],a9balance:[3]}`);
+test('explicit reduced targets preserve all logs, survive backup/restore, and work independently of weeks',()=>{
+ run(`S=blank();S.week=4;S.targetMode='reduced';bfTargetMode='reduced';S.today.sid='A';S.today.log={a8:[6,5,6,5,4],a9balance:[3]};bfSid='A';bfLog={a8:[6,6,5,4,3],a9balance:[3]}`);
  const today=json('S.today'),history=json('S.history'),backfill=json('bfLog');
  assert.equal(run(`setsFor(S.plan[0].ex.find(e=>e.id==='a8'),4)`),3);
  assert.equal(run(`repsFor(S.plan[0].ex.find(e=>e.id==='a9balance'),4)`),2);
  assert.ok(run('viewTrain(phase(4))').includes("logSet('a8',4,6)"));
  assert.ok(run('viewBfExercises("A",4)').includes("bfLogSet('a8',4,6)"));
- run('setWeek4Reduced(false)');assert.equal(run(`setsFor(S.plan[0].ex.find(e=>e.id==='a8'),4)`),5);
+ run("setTargetMode('normal')");assert.equal(run(`setsFor(S.plan[0].ex.find(e=>e.id==='a8'),4)`),5);
  assert.equal(run(`repsFor(S.plan[0].ex.find(e=>e.id==='a9balance'),4)`),3);
  assert.deepEqual(json('S.today'),today);assert.deepEqual(json('bfLog'),backfill);assert.deepEqual(json('S.history'),history);
  for(const w of [1,2,3,5,6,7,8])assert.equal(run(`setsFor(S.plan[0].ex.find(e=>e.id==='a8'),${w})`),5);
  context.backupText=run('snapshot()');context.confirm=()=>true;run('S=blank();applyBackup(backupText)');context.confirm=()=>false;
- assert.equal(run('S.reducedWeek4'),false);assert.deepEqual(json('S.today'),today);
- run('setWeek4Reduced(true)');assert.deepEqual(json('S.today'),today);
+ assert.equal(run('S.targetMode'),'normal');assert.deepEqual(json('S.today'),today);
+ run("setTargetMode('reduced')");assert.deepEqual(json('S.today'),today);
 });
 test('corrupt stored JSON is not overwritten on boot',()=>{const local=new Map([[storageKey,'{broken']]);const other=vm.createContext({...context,localStorage:{getItem:k=>local.get(k),setItem:(k,v)=>local.set(k,v)}});vm.runInContext(source,other);assert.equal(local.get(storageKey),'{broken');});
 test('Train shows the last two results per exercise, newest first, same session only, with legacy name matching',()=>{
@@ -163,14 +163,14 @@ test('saved plans get the shorter notes once; personal edits, doses and records 
  run(`S=blank();S.plan[0].note=OLD_SESSION_NOTES.A[0];delete S.notesVersion`);context.backupText=run('snapshot()');context.confirm=()=>true;run('applyBackup(backupText)');context.confirm=()=>false;
  assert.equal(run('S.plan[0].note'),run('DEFAULT_PLAN[0].note'));
 });
-test('Sep 24 rebalance: default layout, week-4 reduction, and a one-time conservative update for saved plans',()=>{
+test('Sep 24 rebalance: default layout, explicit reduction, and a one-time conservative update for saved plans',()=>{
  const ids=sid=>json(`S.plan.find(p=>p.id==='${sid}').ex.map(e=>e.id)`);
  const B=['b1','b3','b4free','b10dips','b11push','b12er','b7'], C=['c1','c9balance','c8','c3','c6','c10lean'],
    D=['d1','d8shifts','d11finger','d12tuck','d9lean','d13support','d14er','d7'], T=['t1','t7','t8','t3','t6','t2'];
  run('S=blank()');assert.deepEqual(ids('B'),B);assert.deepEqual(ids('C'),C);assert.deepEqual(ids('D'),D);assert.deepEqual(ids('T'),T);
  assert.equal(run('S.plan[3].name'),'OAHS / planche');assert.ok(!run(`S.plan.flatMap(p=>p.ex).some(e=>e.id==='d10hspu')`),'no HSPU on D');
  assert.ok(run(`S.plan[1].ex.find(e=>e.id==='b10dips').optional`));
- assert.equal(run(`setsFor(DEFAULT_PLAN[3].ex.find(e=>e.id==='d12tuck'),4)`),2);
+ assert.equal(run(`setsFor(DEFAULT_PLAN[3].ex.find(e=>e.id==='d12tuck'),4,'reduced')`),2);
  // A saved v4 plan from before the rebalance (as on the phone), with a personal edit and an unfinished log.
  const strip=`S=blank();delete S.rebalanceVersion;
    S.plan[1].ex=S.plan[1].ex.filter(e=>!['b10dips','b11push','b12er'].includes(e.id));

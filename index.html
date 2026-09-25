@@ -46,11 +46,6 @@ button{font-family:inherit}
 .sec{font-family:var(--mono);font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:var(--galv);margin:26px 0 4px;padding-bottom:7px;border-bottom:1px solid var(--steel-hi)}
 .note{color:var(--galv);font-size:11.5px;line-height:1.6;margin-top:12px}
 
-.weeks{display:flex;gap:5px}
-.wk{flex:1;aspect-ratio:1/1.15;background:var(--steel);border:1px solid var(--steel-hi);border-radius:3px;color:var(--galv);font-family:var(--mono);font-size:13px;padding:0}
-.wk.on{background:var(--sodium);border-color:var(--sodium);color:var(--night);font-weight:700}
-.wk.mark2{border-color:var(--sodium-dim)}
-
 .sessions{display:flex;gap:6px;margin:16px 0 6px}
 .sesswrap{position:relative;flex:1;display:flex}
 .sess{flex:1;background:var(--steel);border:1px solid var(--steel-hi);border-radius:3px;padding:11px 3px 9px;display:flex;flex-direction:column;align-items:center;gap:3px}
@@ -468,7 +463,7 @@ const DEFAULT_PLAN = [
     "id": "T",
     "name": "Optional benchmarks",
     "testOnly": true,
-    "note": "Optional, week 8. Pick one benchmark and do it fresh; skip the others.",
+    "note": "Optional. Pick one benchmark and do it fresh; skip the others.",
     "ex": [
       {
         "id": "t1",
@@ -607,10 +602,66 @@ const KEY="barlog.v1";
 const PLAN_VERSION=4;
 let storageBlocked=false;
 
+/* Calendar weeks are independent of routine versions, rotation and target reductions. */
+function dayKey(){ const d=new Date(); return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0"); }
+function dateNumber(value){
+  if(typeof value!=="string"||!/^\d{4}-\d{2}-\d{2}$/.test(value))return null;
+  const n=Date.parse(value+"T00:00:00Z");
+  return Number.isFinite(n)&&new Date(n).toISOString().slice(0,10)===value?n/86400000:null;
+}
+function datePlus(date,days){ return new Date((dateNumber(date)+days)*86400000).toISOString().slice(0,10); }
+function calendarWeek(date,start=S.calendar.startDate){
+  const n=dateNumber(date), a=dateNumber(start);
+  return n==null||a==null||n<a?null:Math.floor((n-a)/7)+1;
+}
+function initCalendar(state,saved){
+  if(saved.calendar&&dateNumber(saved.calendar.startDate)!=null){
+    state.calendar={...saved.calendar};
+  }else{
+    const dates=(state.history||[]).map(r=>r.date).filter(d=>dateNumber(d)!=null&&d<=dayKey()).sort();
+    state.calendar={startDate:dates[0]||dayKey(),source:dates.length?"earliest-log":"new"};
+  }
+  state.targetMode=["normal","reduced"].includes(saved.targetMode)?saved.targetMode:
+    (saved.week===4&&saved.reducedWeek4!==false?"reduced":"normal");
+}
+function weekText(date){ const w=calendarWeek(date); return w==null?"Before start":"Week "+w; }
+function hasDraft(){ return Object.values(S.today.log||{}).some(a=>a.some(v=>v!=null)); }
+function refreshDraftDate(){
+  if(!hasDraft()&&S.today.date!==dayKey()){
+    S.today.date=dayKey();S.today.rice=false;
+  }
+}
+function setCalendarStart(value){
+  if(dateNumber(value)==null||value>dayKey()){alert("Choose a valid start date no later than today.");return;}
+  const previous=JSON.parse(JSON.stringify(S.calendar));
+  S.calendar={startDate:value,source:"chosen"};
+  if(!save()){S.calendar=previous;render();return;}
+  render();toast("Calendar updated. Workout dates and sets kept.");
+}
+function setTargetMode(value){
+  if(!["normal","reduced"].includes(value))return;
+  const previous=S.targetMode;S.targetMode=value;
+  if(!save()){S.targetMode=previous;render();return;}
+  render();
+}
+function targetControl(){
+  return '<div class="lbl">Workout targets</div><div class="acts">'+
+    ['normal','reduced'].map(v=>'<button class="btn '+(S.targetMode===v?'':'ghost')+'" aria-pressed="'+(S.targetMode===v)+'" onclick="setTargetMode(\''+v+'\')">'+(v==='normal'?'Normal':'Reduced')+'</button>').join('')+
+    '</div><div class="note">Choose according to recovery. Stays selected until you change it; calendar weeks never change targets.</div>';
+}
+function viewCalendar(){
+  const w=calendarWeek(dayKey()), start=w==null?S.calendar.startDate:datePlus(S.calendar.startDate,(w-1)*7);
+  return '<div class="lbl">Calendar · '+esc(weekText(dayKey()))+'</div><div class="note">'+esc(start)+' to '+esc(datePlus(start,6))+'. Weeks advance automatically every seven days.</div>'+
+    '<details class="note"><summary>Calendar start: '+esc(S.calendar.startDate)+'</summary>'+
+    '<p>'+(S.calendar.source==='earliest-log'?'Initially based on your earliest saved workout. ':'')+'Changing this date relabels calendar weeks only. Original logged week labels remain in workout details. Routine changes never reset it.</p>'+
+    '<div class="field"><label for="calendarStart">Start</label><input id="calendarStart" type="date" max="'+dayKey()+'" value="'+esc(S.calendar.startDate)+'"></div>'+
+    '<button class="btn ghost" onclick="setCalendarStart(document.getElementById(\'calendarStart\').value)">Save start date</button></details>';
+}
+
 /* ── state ── */
-let S=null, tab="train", timer=null, tick=null, ac=null, editSess="A", openHist=-1, bfSid="A", bfWeek=null, bfLog={};
-/* backfill form fields live here so a re-render (chip tap, week change) can't reset them */
-let bfDate=null, bfReps="", bfSecs="", bfNote="", bfRice=false, bfAdv=null;
+let S=null, tab="train", timer=null, tick=null, ac=null, editSess="A", openHist=-1, bfSid="A", bfLog={};
+/* Keep backfill fields across chip taps, date changes and re-renders. */
+let bfDate=null, bfReps="", bfSecs="", bfNote="", bfRice=false, bfAdv=null, bfTargetMode="normal";
 let openPr=null;
 /* manual-max form fields, kept across re-renders like the backfill form */
 let mxLift="pullup", mxVal="", mxDate=null;
@@ -640,10 +691,10 @@ function expandHist(i){ openHist=openHist===i?-1:i; render(); }
 function setBfSess(id){ bfSid=id; bfLog={}; bfAdv=null; render(); }
 const bfDay=()=>bfDate||dayKey();
 const bfAdvOn=()=>bfAdv==null?bfWillAdv():bfAdv;
-function bfSet(k,v){ ({date:()=>bfDate=v,reps:()=>bfReps=v,secs:()=>bfSecs=v,
+function bfSet(k,v){ ({date:()=>{bfDate=v;render();},reps:()=>bfReps=v,secs:()=>bfSecs=v,
   note:()=>bfNote=v,rice:()=>bfRice=v,adv:()=>bfAdv=v})[k](); }
-function bfResetForm(){ bfDate=null; bfReps=""; bfSecs=""; bfNote=""; bfRice=false; bfAdv=null; }
-function setBfWeek(w){ bfWeek=w; render(); }
+function bfResetForm(){ bfDate=null; bfReps=""; bfSecs=""; bfNote=""; bfRice=false; bfAdv=null; bfTargetMode="normal"; }
+function setBfTargets(v){ if(["normal","reduced"].includes(v))bfTargetMode=v;render(); }
 function bfClearLog(){ bfLog={}; render(); }
 function bfPlan(){ return S.plan.find(p=>p.id===bfSid); }
 function bfEx(exId){ const p=bfPlan(); return p&&p.ex.find(x=>x.id===exId); }
@@ -651,6 +702,7 @@ function bfEx(exId){ const p=bfPlan(); return p&&p.ex.find(x=>x.id===exId); }
 function blank(){return{
   planVersion:PLAN_VERSION, ...patchFlags(()=>1), reducedWeek4:true,
   week:1, rot:0, alert:"vibrate",
+  calendar:{startDate:dayKey(),source:"new"}, targetMode:"normal",
   plan:JSON.parse(JSON.stringify(DEFAULT_PLAN)),
   today:{date:"",sid:"A",log:{},band:{},rice:false},
   history:[], prs:{fingertip:[],planche:[],pullup:[],hspu:[],lever:[],dip:[],pushup:[]}
@@ -701,6 +753,12 @@ function rebalancePlan(plan){
     session.ex.splice(at,0,ex);
   }
 }
+// Remove obsolete benchmark scheduling text only when it is a known default.
+function updateCalendarCopy(plan){
+  const p=plan.find(p=>p.id==="T");
+  if(p&&[OLD_SESSION_NOTES.T[0],"Optional, week 8. Pick one benchmark and do it fresh; skip the others."].includes(p.note))
+    p.note="Optional. Pick one benchmark and do it fresh; skip the others.";
+}
 // Update only earlier default deficit cues; keep personal notes and doses intact.
 function updateDeficitDescent(plan){
   const session=plan.find(p=>p.id==="B");
@@ -716,6 +774,7 @@ const PLAN_PATCHES=[
   {key:"notesVersion",v4Only:false,apply:trimNotes},
   {key:"rebalanceVersion",v4Only:true,apply:rebalancePlan},
   {key:"deficitDescentVersion",v4Only:true,apply:updateDeficitDescent},
+  {key:"calendarCopyVersion",v4Only:false,apply:updateCalendarCopy},
 ];
 function patchFlags(value){ return Object.fromEntries(PLAN_PATCHES.map(p=>[p.key,value(p.key)])); }
 // `saved` is the stored record (state, backup or archive) whose flags say what already ran.
@@ -732,6 +791,7 @@ function migrate(state,fromVersion,saved){
   state.planArchives=state.planArchives||[];
   applyPatches(state,fromVersion,saved);
   state.reducedWeek4=state.reducedWeek4!==false;
+  initCalendar(state,saved);
   return state;
 }
 function archivePlan(){
@@ -747,7 +807,7 @@ function switchPlan(archivedIndex){
   S.plan=JSON.parse(JSON.stringify(archived?archived.plan:DEFAULT_PLAN));
   S.planVersion=archived?archived.planVersion:PLAN_VERSION;
   applyPatches(S,S.planVersion,archived||blank());
-  S.week=archived?archived.week:1;
+  // Calendar and target mode belong to the ongoing log, not a routine archive.
   S.rot=archived?archived.rot:S.rot;
   S.today=archived?JSON.parse(JSON.stringify(archived.today)):
     {date:dayKey(),sid:nextId(),log:{},band:{},rice:false};
@@ -772,34 +832,27 @@ function load(){
 function save(){ if(storageBlocked)return false; try{ localStorage.setItem(KEY,JSON.stringify(S)); return true; }catch(e){ console.error("save failed",e); alert("Could not save. Export a backup before leaving; this browser may be out of space."); return false; } }
 function commit(){ save(); render(); }
 
-const dayKey=()=>{ const d=new Date(); return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0"); };
 const mmss=s=>Math.floor(s/60)+":"+String(s%60).padStart(2,"0");
 const shortD=d=>d.slice(8,10)+"/"+d.slice(5,7);
 const esc=s=>String(s==null?"":s).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
 
-function phase(w){
-  if(w===4)return S.reducedWeek4!==false?{l:"Recovery option",d:"Reduced targets for a lighter week. No catch-up needed"}:{l:"Normal targets",d:"Normal targets. Switch to reduced if you’re worn down"};
-  if(w===8)return{l:"Review",d:"Review week. Benchmarks are optional"};
-  return{l:"Practice",d:"Progress one thing at a time, after clean, well-recovered sessions"};
-}
-function setsFor(e,w){
-  if(w===4&&S.reducedWeek4!==false&&e.tier!=="prep"&&!e.budget)return Math.max(1,Math.round(e.sets*0.6));
+function phase(){ return S.targetMode==="reduced"?
+  {l:"Reduced targets",d:"Lighter targets selected. No catch-up needed"}:
+  {l:"Normal targets",d:"Progress one thing at a time, after clean, well-recovered sessions"}; }
+function setsFor(e,w,mode=S.targetMode){
+  if(mode==="reduced"&&e.tier!=="prep"&&!e.budget)return Math.max(1,Math.round(e.sets*0.6));
   return e.sets;
 }
-function repsFor(e,w){ return w===4&&S.reducedWeek4!==false&&e.budget?Math.max(1,Math.round(e.reps*0.6)):e.reps; }
-function setWeek4Reduced(reduced){ S.reducedWeek4=!!reduced; commit(); }
-function week4Control(w){
-  if(w!==4)return "";
-  const reduced=S.reducedWeek4!==false;
-  return '<div class="lbl">Week 4 targets</div><div class="acts">'+
-    '<button class="btn '+(reduced?'':'ghost')+'" aria-pressed="'+reduced+'" onclick="setWeek4Reduced(true)">Reduced</button>'+
-    '<button class="btn '+(reduced?'ghost':'')+'" aria-pressed="'+(!reduced)+'" onclick="setWeek4Reduced(false)">Normal</button></div>'+
-    '<div class="note">Pick based on how you feel, not the calendar. Logged sets don’t change.</div>';
-}
+function repsFor(e,w,mode=S.targetMode){ return mode==="reduced"&&e.budget?Math.max(1,Math.round(e.reps*0.6)):e.reps; }
 const unitOf=e=>e.unit==="reps"?"":e.unit;
 const sess=()=>S.plan.find(s=>s.id===S.today.sid)||S.plan[0];
 const cycle=()=>S.plan.filter(s=>!s.testOnly);
 const nextId=()=>cycle()[S.rot%cycle().length].id;
+function advanceAfter(sid){
+  const c=cycle(), i=c.findIndex(p=>p.id===sid);if(i<0)return;
+  const step=(i-(S.rot%c.length)+c.length)%c.length+1;
+  S.rot+=step;
+}
 const rotAt=n=>{ const c=cycle(); return c.length?c[((n%c.length)+c.length)%c.length].id:"\u2014"; };
 
 /* ── alert ── */
@@ -855,6 +908,7 @@ function drawTimer(){
 
 /* ── logging ── */
 function logSet(exId,idx,target){
+  refreshDraftDate();
   unlockAudio();
   const e=sess().ex.find(x=>x.id===exId);
   const arr=(S.today.log[exId]||[]).slice();
@@ -870,14 +924,15 @@ function nudge(exId,d){
   S.today.log[exId]=arr; commit();
 }
 function pickSession(id){ stopTimer(); S.today.sid=id; commit(); }
-function pickWeek(w){ S.week=w; commit(); }
 function toggleRice(){ S.today.rice=!S.today.rice; commit(); }
 function clearDay(){ stopTimer(); S.today.log={}; S.today.band={}; commit(); }
 function setTodayBand(id,v){ if(!S.today.band)S.today.band={}; S.today.band[id]=v; save(); }
 function cycleAlert(){ const o=["vibrate","sound","off"]; S.alert=o[(o.indexOf(S.alert)+1)%3]; commit(); }
 
 function finish(){
+  refreshDraftDate();
   const s=sess(), log=S.today.log;
+  if(!s.ex.some(e=>(log[e.id]||[]).some(v=>typeof v==="number")))return;
   let reps=0, secs=0;
   const detail=[];
   s.ex.forEach(e=>{
@@ -892,9 +947,9 @@ function finish(){
     if(e.pr)S.prs[e.pr]=(S.prs[e.pr]||[]).concat([{date:S.today.date||dayKey(),value:Math.max.apply(null,vals)}]);
   });
   openHist=-1;
-  S.history.unshift({date:S.today.date||dayKey(),sid:s.id,week:S.week,reps:reps,secs:secs,detail:detail,...(S.today.rice?{rice:true}:{})});
+  S.history.unshift({date:S.today.date||dayKey(),sid:s.id,week:calendarWeek(S.today.date||dayKey()),weekSource:"calendar",targetMode:S.targetMode,reps:reps,secs:secs,detail:detail,...(S.today.rice?{rice:true}:{})});
   // Keep older entries; backups include the complete history.
-  if(!s.testOnly)S.rot++;
+  if(!s.testOnly)advanceAfter(s.id);
   S.today={date:dayKey(),sid:nextId(),log:{},band:{},rice:S.today.rice};
   stopTimer(); tab="progress"; commit();
 }
@@ -960,11 +1015,11 @@ function bfNudge(exId,d){
 function addPast(){
   const d=bfDay();
   const sid=bfSid;
-  const wk=bfWeek==null?S.week:bfWeek;
+  const wk=calendarWeek(d);
   const adv=bfAdvOn();
   const note=bfNote.trim();
   const rice=bfRice;
-  if(!d){ alert("Pick a date."); return; }
+  if(dateNumber(d)==null||d>dayKey()){ alert("Pick a valid workout date no later than today."); return; }
   const plan=S.plan.find(p=>p.id===sid);
   const detail=buildBfDetail(sid);
   let reps=0, secs=0;
@@ -983,21 +1038,26 @@ function addPast(){
     if(isNaN(reps))reps=0; if(isNaN(secs))secs=0;
     if(!reps&&!secs){ alert("Log at least one exercise, or enter rep/sec totals."); return; }
   }
-  const entry={date:d,sid:sid,week:isNaN(wk)?S.week:wk,reps:reps,secs:secs,manual:true};
+  const entry={date:d,sid:sid,week:wk,weekSource:"calendar",targetMode:bfTargetMode,reps:reps,secs:secs,manual:true};
   if(detail.length)entry.detail=detail;
   if(note)entry.note=note;
   if(rice)entry.rice=true;
   S.history.unshift(entry);
   openHist=-1;
-  if(adv){ S.rot++; S.today.sid=nextId(); }
-  bfSid=sid; bfWeek=null; bfLog={}; bfResetForm();
+  if(adv){ advanceAfter(sid); if(!hasDraft())S.today.sid=nextId(); }
+  bfSid=sid; bfLog={}; bfResetForm();
   commit();
   toast("Logged "+sid+" \u00b7 next up "+nextId());
 }
-function bfWillAdv(){ const p=S.plan.find(x=>x.id===bfSid); return !(p&&p.testOnly); }
+function bfWillAdv(){
+  const p=S.plan.find(x=>x.id===bfSid);
+  const latest=historyRows()[0];
+  return !(p&&p.testOnly)&&!hasDraft()&&bfSid===nextId()&&bfDay()===dayKey()&&(!latest||bfDay()>latest.record.date);
+}
 function rotHint(adv){
-  const id=esc(rotAt(S.rot+(adv?1:0)));
-  return (adv?"Move the rotation forward one":"Leave the rotation where it is")+
+  const c=cycle(),i=c.findIndex(p=>p.id===bfSid);
+  const id=esc(adv&&i>=0?c[(i+1)%c.length].id:nextId());
+  return (adv?"Set next after this session":"Leave the rotation where it is")+
     ' \u2014 next up becomes <b style="color:var(--sodium)">'+id+'</b>';
 }
 function bfRotHint(){
@@ -1009,7 +1069,7 @@ function viewBfExercises(sid,wk){
   let h='<div class="bfSub"><span>Exercise log</span><button class="miniB" onclick="bfClearLog()">clear</button></div>'+
      '<div class="note" style="margin-top:0;margin-bottom:10px">Tap a chip to log at target. Tap again to clear.</div><div class="bfBlock">';
   plan.ex.forEach(e=>{
-    const cnt=setsFor(e,wk), tgt=repsFor(e,wk), log=bfLog[e.id]||[];
+    const cnt=setsFor(e,wk,bfTargetMode), tgt=repsFor(e,wk,bfTargetMode), log=bfLog[e.id]||[];
     const done=log.filter(v=>v!=null).length;
     h+='<div class="bfEx"><div class="exTop"><div class="bfExN">'+esc(e.n)+(e.optional?' · optional':'')+'</div><div class="bfExT">'+
        (e.amrap?"record actual":e.budget?tgt+"min total incl. rest":cnt+" × "+(e.cap?"up to ":"")+tgt+unitOf(e))+'</div></div>';
@@ -1048,14 +1108,15 @@ function delHist(i){
   const counted=!(p&&p.testOnly);
   if(counted&&S.rot>0&&confirm("Pull the rotation back one too?\n\nNext up becomes "+rotAt(S.rot-1)+" instead of "+rotAt(S.rot)+".")){
     S.rot=Math.max(0,S.rot-1);
-    S.today.sid=nextId();
+    if(!hasDraft())S.today.sid=nextId();
   }
   commit();
   toast("Removed \u00b7 next up "+nextId());
 }
 function setHistDate(i,v){
-  const r=S.history[i]; if(!r||!v||v===r.date)return;
+  const r=S.history[i]; if(!r||dateNumber(v)==null||v>dayKey()||v===r.date)return;
   r.date=v;
+  if(r.weekSource==="calendar")r.week=calendarWeek(v);
   openHist=-1;
   commit();
   toast("Moved to "+shortD(v));
@@ -1077,7 +1138,7 @@ function delMax(k,i){
 }
 function bumpRot(d){
   S.rot=Math.max(0,S.rot+d);
-  S.today.sid=nextId();
+  if(!hasDraft())S.today.sid=nextId();
   commit();
 }
 
@@ -1121,7 +1182,8 @@ function fmtBytes(n){
   return n<1024?n+" B":n<1048576?(n/1024).toFixed(1)+" KB":(n/1048576).toFixed(1)+" MB";
 }
 
-function snapshot(){ return JSON.stringify(S,null,2); }
+// Legacy week fields are audit/compatibility values. calendar.startDate is authoritative.
+function snapshot(){ return JSON.stringify({...S,week:calendarWeek(dayKey())},null,2); }
 function backupName(){ return "barlog-"+dayKey()+".json"; }
 
 let toastT=null;
@@ -1232,12 +1294,13 @@ function spark(pts){
 
 /* ── render ── */
 function render(){
+  refreshDraftDate();
   const el=document.getElementById("app");
-  const ph=phase(S.week);
+  const ph=phase();
   let h="";
 
   h+='<div class="head"><div class="mark">Bar<span>.</span>Log</div>'+
-     '<div class="meta">Week '+S.week+' of 8<br><b>'+ph.l+'</b><br>'+
+     '<div class="meta">'+esc(weekText(dayKey()))+'<br><b>'+ph.l+'</b><br>'+
      '<button class="alertbtn" onclick="cycleAlert()">alert: '+S.alert+'</button></div></div>';
 
   h+='<div class="tabs">'+
@@ -1245,7 +1308,7 @@ function render(){
      '</div>';
 
   if(storageBlocked)h+='<div class="note">Stored data could not be read. It has not been overwritten. Export or recover the original browser data before logging here.</div>';
-  if(S.planVersion<PLAN_VERSION)h+='<div class="sec">Revised routine available</div><div class="note">Front lever leads the pulling work; OAHS shift practice on A/C, HSPU singles on B and D, and a dedicated OAHS session on D. Your current plan stays until you switch. Switching saves its edits and unfinished log in Data, keeps history and maxes, and starts week 1.</div><button class="btn" onclick="resetPlan()">Use revised routine</button>';
+  if(S.planVersion<PLAN_VERSION)h+='<div class="sec">Revised routine available</div><div class="note">OAHS practice on A/C/D, HSPU work on B, and cautious planche work on C/D. Your current plan stays until you switch. Switching saves its edits and unfinished log in Data and keeps your calendar, history and maxes.</div><button class="btn" onclick="resetPlan()">Use revised routine</button>';
   if(tab==="train")h+=viewTrain(ph);
   if(tab==="progress")h+=viewProgress();
   if(tab==="edit")h+=viewEdit();
@@ -1279,18 +1342,17 @@ function viewLast(sid,e){
 
 function viewTrain(ph){
   const s=sess(), nid=nextId();
-  let h='<div class="lbl">Block week · tap to change</div><div class="weeks">';
-  for(let w=1;w<=8;w++)h+='<button class="wk'+(S.week===w?" on":"")+(w===4||w===8?" mark2":"")+'" onclick="pickWeek('+w+')">'+w+'</button>';
-  h+='</div><div class="note">'+ph.d+'.</div>'+week4Control(S.week);
+  let h=viewCalendar()+targetControl();
 
   h+='<div class="sessions">';
   S.plan.forEach(p=>{
-    if(p.testOnly&&S.week!==8)return;
+    if(p.testOnly)return;
     h+='<div class="sesswrap"><button class="sess'+(s.id===p.id?" on":"")+'" onclick="pickSession(\''+p.id+'\')">'+
        '<span class="sessL">'+p.id+'</span><span class="sessN">'+esc(p.name)+'</span></button>'+
        (p.id===nid&&s.id!==p.id?'<span class="dot"></span>':'')+'</div>';
   });
-  h+='</div><div class="note">'+(s.id===nid?"Next in the rotation.":"Rotation says "+nid+" next. Dot marks it.")+'</div>';
+  h+='</div>'+S.plan.filter(p=>p.testOnly).map(p=>'<button class="btn ghost" style="margin-top:8px" onclick="pickSession(\''+p.id+'\')">Optional benchmarks</button>').join('');
+  h+='<div class="note">'+(s.id===nid?"Next in the rotation.":"Rotation says "+nid+" next. Dot marks it.")+'</div>';
 
   /* Daily rice tracking is available with every routine. */
   h+='<div class="daily'+(S.today.rice?" on":"")+'" onclick="toggleRice()"><span class="box">'+(S.today.rice?"✓":"")+'</span>'+
@@ -1302,7 +1364,8 @@ function viewTrain(ph){
   h+='<div class="note">Rest days as needed. If shoulder ache returns, stop that movement and ease off next time; get it checked if it keeps coming back.</div>';
 
   s.ex.forEach(e=>{
-    const cnt=setsFor(e,S.week), tgt=repsFor(e,S.week), log=S.today.log[e.id]||[];
+    const w=calendarWeek(S.today.date||dayKey());
+    const cnt=setsFor(e,w), tgt=repsFor(e,w), log=S.today.log[e.id]||[];
     const done=log.filter(v=>v!=null).length;
     h+='<div class="ex"><div class="exTop"><div class="exN">'+esc(e.n)+(e.optional?' · optional':'')+'</div><div class="exT">'+
        (e.amrap?"record actual":e.budget?tgt+"min total incl. rest":cnt+" × "+(e.cap?"up to ":"")+tgt+unitOf(e))+(e.rest?" · "+mmss(e.rest)+" rest":"")+'</div></div>';
@@ -1350,11 +1413,13 @@ function viewHistory(){
     const expandable=true;
     h+='<div class="hist"'+(expandable?' role="button" tabindex="0" aria-expanded="'+(openHist===i)+'" onkeydown="if(event.target===this&&(event.keyCode===13||event.keyCode===32)){event.preventDefault();expandHist('+i+')}" onclick="expandHist('+i+')" style="cursor:pointer"':'')+'>'+
        '<span class="histD">'+esc(r.date)+'</span><span class="histS">'+esc(r.sid)+'</span>'+
-       '<span class="histX">wk '+esc(r.week)+(bits.length?" · "+bits.join(" · "):"")+(r.manual?" · by hand":"")+
+       '<span class="histX">'+esc(weekText(r.date))+(bits.length?" · "+bits.join(" · "):"")+(r.manual?" · by hand":"")+
        (expandable?(openHist===i?" ▾":" ▸"):"")+'</span>'+
        '<button class="miniB" aria-label="Delete workout" onclick="event.stopPropagation();delHist('+i+')">×</button></div>';
     if(openHist===i){
       h+='<div style="padding:6px 0 12px 68px;border-bottom:1px solid var(--steel)">';
+      if(r.weekSource!=="calendar"&&r.week!=null)h+='<div class="note">Original logged label: week '+esc(r.week)+'. Calendar label above comes from the workout date.</div>';
+      if(r.targetMode)h+='<div class="note">'+esc(r.targetMode)+' targets</div>';
       if(r.note)h+='<div style="font-size:12px;color:var(--galv);padding:0 0 8px;line-height:1.45">'+esc(r.note)+'</div>';
       if(r.rice)h+='<div style="font-size:11px;color:var(--sodium);padding:0 0 8px">Rice bag ✓</div>';
       if(hasD)r.detail.forEach(x=>{
@@ -1391,7 +1456,7 @@ function viewProgress(){
       h+='<div class="note" style="margin-top:10px">Latest by date is the one shown as your max. Fix a wrong date here, or drop the entry.</div></div>';
     }
   });
-  h+='<div class="note">Maxes fill in from an optional benchmark session, available in week 8. Existing records are kept; default targets are not personal records.</div>';
+  h+='<div class="note">Maxes fill in from an optional benchmark session, available whenever you choose. Existing records are kept; default targets are not personal records.</div>';
   h+='<div class="sec">Log a max by hand</div>'+
      '<div class="note">For a max you hit outside a Test day, or one you forgot to record.</div>'+
      '<div class="field"><label>Lift</label><select id="mxLift" onchange="mxLift=this.value">'+
@@ -1400,15 +1465,17 @@ function viewProgress(){
      '<div class="field"><label>Date</label><input id="mxDate" type="date" value="'+esc(mxDate||dayKey())+'" max="'+dayKey()+'" oninput="mxDate=this.value"></div>'+
      '<div class="acts"><button class="btn" onclick="addMax()">Add max</button></div>';
 
-  const bfw=bfWeek==null?S.week:bfWeek;
+  const bfw=calendarWeek(bfDay());
   if(!S.plan.some(p=>p.id===bfSid))bfSid=S.plan[0].id;
   h+='<div class="sec">Add a session you missed logging</div>'+
      '<div class="note">Trained but forgot to open this? Log each exercise, or fall back to rep/sec totals only.</div>'+
-     '<div class="field"><label>Date</label><input id="bfDate" type="date" value="'+esc(bfDay())+'" max="'+dayKey()+'" oninput="bfSet(\'date\',this.value)"></div>'+
+     '<div class="field"><label for="bfDate">Date</label><input id="bfDate" type="date" value="'+esc(bfDay())+'" max="'+dayKey()+'" onchange="bfSet(\'date\',this.value)"></div>'+
      '<div class="field"><label>Session</label><select id="bfSess" onchange="setBfSess(this.value)">'+
        S.plan.map(p=>'<option value="'+p.id+'"'+(p.id===bfSid?" selected":"")+'>'+p.id+' · '+esc(p.name)+'</option>').join("")+'</select></div>'+
-     '<div class="field"><label>Week</label><input id="bfWeek" type="number" step="1" inputmode="numeric" value="'+bfw+'" onchange="setBfWeek(parseInt(this.value,10)||'+S.week+')"></div>'+
-     week4Control(bfw)+viewBfExercises(bfSid,bfw)+
+     '<div class="note">'+esc(weekText(bfDay()))+' · calculated from the workout date.</div>'+
+     '<div class="field"><label for="bfTargets">Targets</label><select id="bfTargets" onchange="setBfTargets(this.value)">'+
+       ['normal','reduced'].map(v=>'<option value="'+v+'"'+(v===bfTargetMode?' selected':'')+'>'+v+'</option>').join('')+'</select></div>'+
+     viewBfExercises(bfSid,bfw)+
      '<div class="bfSub">Or totals only</div>'+
      '<div class="field"><label>Reps</label><input id="bfReps" type="number" step="1" inputmode="numeric" placeholder="0" value="'+esc(bfReps)+'" oninput="bfSet(\'reps\',this.value)">'+
      '<label style="width:40px">Secs</label><input id="bfSecs" type="number" step="1" inputmode="numeric" placeholder="0" value="'+esc(bfSecs)+'" oninput="bfSet(\'secs\',this.value)"></div>'+
@@ -1456,13 +1523,13 @@ function viewEdit(){
   });
   h+='<div class="acts"><button class="btn" onclick="addEx(\''+s.id+'\')">Add exercise</button>'+
      '<button class="btn ghost" onclick="resetPlan()">Use revised defaults</button></div>';
-  h+='<div class="note">Targets stay stable across weeks. Week 4 offers reduced or normal targets in Train. Use the exercise guidance to progress manually; tier never adds work automatically. Rest is in seconds. Using revised defaults archives your current plan and unfinished log in Data.</div>';
+  h+='<div class="note">Targets stay stable across calendar weeks. Choose reduced or normal targets in Train at any time. Use the exercise guidance to progress manually; tier never adds work automatically. Rest is in seconds. Using revised defaults archives your current plan and unfinished log in Data.</div>';
   return h;
 }
 
 function viewData(){
   const canShare=!!navigator.share;
-  return '<div class="sec">Saved plans</div><div class="note">Switching plans keeps history and maxes. Restore brings back that plan and its unfinished log, week and rotation; your current plan and draft are archived in turn. Export includes these saved plans.</div>'+
+  return '<div class="sec">Saved plans</div><div class="note">Switching plans keeps history and maxes. Restore brings back that plan, its unfinished log and rotation; your calendar and target mode stay unchanged. Your current plan and draft are archived in turn. Export includes these saved plans.</div>'+
     (S.planArchives||[]).map((a,i)=>'<div class="note">'+esc(a.savedAt)+' · version '+esc(a.planVersion)+' <button class="miniB" onclick="restorePlan('+i+')">Restore saved plan '+(i+1)+'</button></div>').join('')+
     '<div class="sec">Storage</div>'+
     '<div class="note">'+persistNote()+'</div>'+
@@ -1492,6 +1559,14 @@ if(S.today.date!==dayKey()&&!Object.values(S.today.log).some(a=>a.some(v=>v!=nul
 bfSid=S.today.sid;
 save();
 render();
+let lastCalendarDay=dayKey();
+function refreshCalendarDay(){
+  if(lastCalendarDay===dayKey())return;
+  lastCalendarDay=dayKey();refreshDraftDate();save();render();
+}
+if(window.addEventListener)window.addEventListener("focus",refreshCalendarDay);
+if(document.addEventListener)document.addEventListener("visibilitychange",()=>{if(!document.hidden)refreshCalendarDay();});
+setInterval(refreshCalendarDay,60000);
 checkPersist().then(()=>{ if(tab==="data")render(); });
 if(navigator.serviceWorker&&location.protocol!=="file:")navigator.serviceWorker.register("sw.js").catch(e=>console.error("offline cache unavailable",e));
 </script>
