@@ -79,4 +79,32 @@ test('check-in review groups flags by exercise and suggests Reduced after two ac
  a.run(`setTargetMode('reduced')`);assert.equal(a.json('reducedHint()'),null,'already reduced');
  a.time('2026-10-10T12:00:00');a.run(`setTargetMode('normal')`);assert.equal(a.json('reducedHint()'),null,'older aches age out');
 });
+test('light session is a per-workout switch near Finish that turns itself off',()=>{
+ const a=boot();a.run(`S.today.sid='B'`);
+ let html=a.run('viewTrain(phase())');
+ assert.ok(!html.includes('Workout targets'),'no sticky toggle at the top');
+ assert.ok(html.indexOf('Light session today')>html.indexOf('Rice bag wrists')&&html.indexOf('Light session today')<html.indexOf('finishSession'),'sits after the exercises, before Finish');
+ assert.match(html,/role="switch" aria-checked="false" onclick="setTargetMode\('reduced'\)"/);
+ assert.equal(a.run('phase().l'),'Full session');
+ a.run(`setTargetMode('reduced')`);assert.equal(a.run('S.lightDate'),'2026-09-25');assert.equal(a.run('phase().l'),'Light session');
+ assert.equal(a.run(`setTargets(sess().ex.find(e=>e.id==='b11push'),1).length`),2,'about 60% of the sets');
+ a.run(`logSet('b3',0,1);setFeel('clean');finish()`);
+ assert.equal(a.run('S.history[0].targetMode'),'reduced');assert.equal(a.run('S.targetMode'),'normal','off after finishing');assert.equal(a.run('S.lightDate'),undefined);
+ a.run(`setTargetMode('reduced')`);a.time('2026-09-26T08:00:00');a.run('refreshCalendarDay()');assert.equal(a.run('S.targetMode'),'normal','unused light session ends with the day');
+ a.run(`setTargetMode('reduced');S.today.sid='C';logSet('c3',0,5)`);a.time('2026-09-27T01:00:00');a.run('refreshCalendarDay()');
+ assert.equal(a.run('S.targetMode'),'reduced','a workout in progress over midnight stays light');
+ a.run(`pickSession('T')`);a.run(`S.today.log={};S.today.sid='T'`);assert.ok(!a.run('viewTrain(phase())').includes('Light session today'),'not on benchmarks');
+ const legacy=a.json('S');legacy.targetMode='reduced';delete legacy.lightDate;legacy.today={date:'2026-09-20',sid:'A',log:{},band:{},rice:false};
+ const b=boot(legacy,'2026-09-28T08:00:00');assert.equal(b.run('S.targetMode'),'reduced','older sticky reduced lasts until the next finish');
+ b.run(`S.today.sid='A';logSet('a8',0,6);finish()`);assert.equal(b.run('S.targetMode'),'normal');
+ const c=boot();const before=c.json('S');c.fail(true);c.run(`setTargetMode('reduced')`);assert.deepEqual(c.json('S'),before);
+});
+test('light sessions read clearly in history, backfill, suggestions and the AI summary',()=>{
+ const a=boot();a.run(`setTargetMode('reduced');S.today.sid='B';logSet('b3',0,1);finish();openHist=0`);
+ assert.match(a.run('viewHistory()'),/<div class="note">Light session<\/div>/);
+ assert.match(a.run('coachSummary()'),/2026-09-25 B light session \[not rated\]/);
+ assert.match(a.run('viewBfExercises("A",1)+viewProgress()'),/<option value="reduced">Light<\/option>/);
+ train(a,'C',['c3'],'ache',['c3'],'2026-09-26');train(a,'D',['d11finger'],'ache',['d11finger'],'2026-09-27');
+ assert.match(a.run('viewTrain(phase())'),/Make today a light session\?.*Make today light/s);
+});
 console.log(`${passed} tool groups passed.`);

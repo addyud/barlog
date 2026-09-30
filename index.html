@@ -69,6 +69,8 @@ button{font-family:inherit}
 
 .daily{margin:16px 0 2px;padding:11px 13px;background:var(--steel);border-left:2px solid var(--sodium-dim);border-radius:2px;display:flex;align-items:center;gap:11px}
 .daily.on{border-left-color:var(--sodium)}
+.daily.toggle{width:100%;border-top:0;border-right:0;border-bottom:0;text-align:left;color:inherit;font:inherit;cursor:pointer;margin-top:22px}
+.daily.toggle .dailyT,.daily.toggle .dailyS{display:block}
 .box{width:17px;height:17px;flex-shrink:0;border-radius:2px;border:1px solid var(--galv);display:flex;align-items:center;justify-content:center;font-size:11px;color:var(--night)}
 .daily.on .box{background:var(--sodium);border-color:var(--sodium)}
 .dailyT{font-size:13px}
@@ -652,18 +654,26 @@ function hasDraft(){ return Object.values(S.today.log||{}).some(a=>a.some(v=>v!=
 function refreshDraftDate(){
   if(!hasDraft()&&S.today.date!==dayKey()){
     S.today.date=dayKey();S.today.rice=false;delete S.today.feel;delete S.today.feelEx;
+    if(S.lightDate&&S.lightDate!==dayKey())endLightSession();
   }
 }
+// A light session ("reduced" targets) applies to the current workout only. It turns off when
+// the workout is finished, or on a later day if no set was logged. A reduced mode carried
+// over from older versions has no lightDate and stays until the next finish.
 function setTargetMode(value){
   if(!["normal","reduced"].includes(value))return;
-  const previous=S.targetMode;S.targetMode=value;
-  if(!save()){S.targetMode=previous;render();return;}
+  const previous=S.targetMode, prevDate=S.lightDate;
+  S.targetMode=value;
+  if(value==="reduced")S.lightDate=dayKey(); else delete S.lightDate;
+  if(!save()){ S.targetMode=previous; if(prevDate===undefined)delete S.lightDate; else S.lightDate=prevDate; render(); return; }
   render();
 }
-function targetControl(){
-  return '<div class="lbl">Workout targets</div><div class="acts">'+
-    ['normal','reduced'].map(v=>'<button class="btn '+(S.targetMode===v?'':'ghost')+'" aria-pressed="'+(S.targetMode===v)+'" onclick="setTargetMode(\''+v+'\')">'+(v==='normal'?'Normal':'Reduced')+'</button>').join('')+
-    '</div><div class="note">Choose according to recovery. Stays selected until you change it; calendar weeks never change targets.</div>';
+function endLightSession(){ S.targetMode="normal"; delete S.lightDate; }
+function lightControl(){
+  const on=S.targetMode==="reduced";
+  return '<button class="daily toggle'+(on?" on":"")+'" role="switch" aria-checked="'+on+'" onclick="setTargetMode(\''+(on?'normal':'reduced')+'\')">'+
+    '<span class="box">'+(on?"\u2713":"")+'</span><span><span class="dailyT">Light session today</span>'+
+    '<span class="dailyS">About 60% of the sets. Turns off when you finish; light sessions don\u2019t count toward step ups.</span></span></button>';
 }
 function viewCalendar(){
   const w=calendarWeek(dayKey()), start=w==null?S.calendar.startDate:datePlus(S.calendar.startDate,(w-1)*7);
@@ -867,8 +877,8 @@ const shortD=d=>d.slice(8,10)+"/"+d.slice(5,7);
 const esc=s=>String(s==null?"":s).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
 
 function phase(){ return S.targetMode==="reduced"?
-  {l:"Reduced targets",d:"Lighter targets selected. No catch-up needed"}:
-  {l:"Normal targets",d:"Progress one thing at a time, after clean, well-recovered sessions"}; }
+  {l:"Light session",d:"About 60% of the sets for this workout. No catch-up needed"}:
+  {l:"Full session",d:"Progress one thing at a time, after clean, well-recovered sessions"}; }
 function setsFor(e,w,mode=S.targetMode){
   if(mode==="reduced"&&e.tier!=="prep"&&!e.budget)return Math.max(1,Math.round(e.sets*0.6));
   return e.sets;
@@ -1149,7 +1159,7 @@ function viewFeel(s){
 
 /* ── check-in review ──
    Grindy and Ache flags and next-day soreness from the last six weeks, plus a suggestion
-   (never an automatic switch) to use Reduced targets after ache or a Too sore day
+   (never an automatic switch) to make today a light session after ache or a Too sore day
    following two sessions within a week. */
 function checkinWindow(weeks){
   const since=datePlus(dayKey(),-7*weeks);
@@ -1178,8 +1188,8 @@ function reducedHint(){
 }
 function viewReducedHint(){
   const h=reducedHint(); if(!h)return "";
-  return '<div class="step back"><b>Ache or too sore after '+h.count+' sessions this week.</b> Switch to Reduced targets for a few sessions? Reduced sessions don’t count toward step ups.'+
-    '<div class="rowBtns"><button class="miniB go" onclick="setTargetMode(\'reduced\')">Switch to Reduced</button>'+
+  return '<div class="step back"><b>Ache or too sore after '+h.count+' sessions this week.</b> Make today a light session? Light sessions don’t count toward step ups.'+
+    '<div class="rowBtns"><button class="miniB go" onclick="setTargetMode(\'reduced\')">Make today light</button>'+
     '<button class="miniB" onclick="snoozeReduced()">Not now</button></div></div>';
 }
 function snoozeReduced(){ const h=reducedHint(); if(!h)return; S.progress.reducedSnooze=h.key; commit(); }
@@ -1200,7 +1210,7 @@ function viewCheckins(){
    Plain text for pasting into an AI assistant. Built on the device; nothing is sent anywhere. */
 function coachSummary(weeks=6){
   const since=datePlus(dayKey(),-7*weeks), L=[];
-  L.push("Calisthenics training log exported from Bar.Log on "+dayKey()+". "+weekText(dayKey())+" of the calendar; "+S.targetMode+" targets selected.");
+  L.push("Calisthenics training log exported from Bar.Log on "+dayKey()+". "+weekText(dayKey())+" of the calendar. Light sessions use about 60% of the sets and never count toward step ups.");
   L.push("","CURRENT PLAN (A–D rotation; next up: "+nextId()+")");
   S.plan.filter(p=>!p.testOnly).forEach(p=>{
     L.push(p.id+" · "+p.name);
@@ -1218,7 +1228,7 @@ function coachSummary(weeks=6){
   rows.forEach(r=>{
     const next=SORENESS[r.soreness]?"; next day: "+SORENESS[r.soreness].toLowerCase():"";
     const feel=" ["+(FEELS[r.feel]?FEELS[r.feel]+(r.feelEx&&r.feelEx.length?": "+r.feelEx.map(id=>((r.detail||[]).find(x=>x.id===id)||{}).n||id).join(", "):""):"not rated")+next+"]";
-    L.push(r.date+" "+r.sid+(r.targetMode==="reduced"?" reduced":"")+(r.manual?" (logged later)":"")+feel);
+    L.push(r.date+" "+r.sid+(r.targetMode==="reduced"?" light session":"")+(r.manual?" (logged later)":"")+feel);
     (r.detail||[]).filter(x=>x.unit!=="min").forEach(x=>{
       const missed=Array.isArray(x.target)&&!metTarget(x);
       L.push("  "+x.n+": "+x.sets.join(",")+(x.unit==="reps"?"":x.unit)+(missed?" (target "+x.target.join(",")+")":"")+(x.band?" band "+x.band:""));
@@ -1435,6 +1445,7 @@ function finish(){
   // Keep older entries; backups include the complete history.
   if(!s.testOnly)advanceAfter(s.id);
   delete S.progress.pending[s.id];
+  endLightSession();
   S.today={date:dayKey(),sid:nextId(),log:{},band:{},rice:S.today.rice};
   if(!save()){S=before;render();return;}
   pendingSession=null;stopTimer(); tab="progress"; render();
@@ -1853,7 +1864,7 @@ function viewTrain(ph){
     if(hasDraft())h+='<div class="note">Finish or clear this workout before changing. Your logged sets stay with this workout.</div>';
   }
   h+='</details>';
-  h+=viewReadiness()+viewCalendar()+targetControl()+viewReducedHint();
+  h+=viewReadiness()+viewReducedHint()+viewCalendar();
 
   /* Daily rice tracking is available with every routine. */
   h+='<div class="daily'+(S.today.rice?" on":"")+'" onclick="toggleRice()"><span class="box">'+(S.today.rice?"✓":"")+'</span>'+
@@ -1893,6 +1904,7 @@ function viewTrain(ph){
   });
 
   const any=s.ex.some(e=>(S.today.log[e.id]||[]).some(v=>v!=null));
+  if(!s.testOnly)h+=lightControl();
   if(any&&!s.testOnly)h+=viewFeel(s);
   h+='<div class="acts"><button id="finishSession" class="btn" '+(any?"":"disabled")+' onclick="finish()">Finish session</button>'+
      '<button class="btn ghost" onclick="clearDay()">Clear</button></div>';
@@ -1925,7 +1937,7 @@ function viewHistory(){
     if(openHist===i){
       h+='<div style="padding:6px 0 12px 68px;border-bottom:1px solid var(--steel)">';
       if(r.weekSource!=="calendar"&&r.week!=null)h+='<div class="note">Original logged label: week '+esc(r.week)+'. Calendar label above comes from the workout date.</div>';
-      if(r.targetMode)h+='<div class="note">'+esc(r.targetMode)+' targets'+(FEELS[r.feel]?' · '+esc(FEELS[r.feel])+(r.feelEx&&r.feelEx.length?': '+esc(r.feelEx.map(id=>(r.detail||[]).find(x=>x.id===id)?.n||id).join(', ')):''):'')+(SORENESS[r.soreness]?' · next day '+esc(SORENESS[r.soreness].toLowerCase()):'')+'</div>';
+      if(r.targetMode)h+='<div class="note">'+(r.targetMode==="reduced"?'Light session':'Full session')+(FEELS[r.feel]?' · '+esc(FEELS[r.feel])+(r.feelEx&&r.feelEx.length?': '+esc(r.feelEx.map(id=>(r.detail||[]).find(x=>x.id===id)?.n||id).join(', ')):''):'')+(SORENESS[r.soreness]?' · next day '+esc(SORENESS[r.soreness].toLowerCase()):'')+'</div>';
       if(r.note)h+='<div style="font-size:12px;color:var(--galv);padding:0 0 8px;line-height:1.45">'+esc(r.note)+'</div>';
       if(r.rice)h+='<div style="font-size:11px;color:var(--sodium);padding:0 0 8px">Rice bag ✓</div>';
       if(hasD)r.detail.forEach(x=>{
@@ -1992,7 +2004,7 @@ function viewProgress(){
        S.plan.map(p=>'<option value="'+p.id+'"'+(p.id===bfSid?" selected":"")+'>'+p.id+' · '+esc(p.name)+'</option>').join("")+'</select></div>'+
      '<div class="note">'+esc(weekText(bfDay()))+' · calculated from the workout date.</div>'+
      '<div class="field"><label for="bfTargets">Targets</label><select id="bfTargets" onchange="setBfTargets(this.value)">'+
-       ['normal','reduced'].map(v=>'<option value="'+v+'"'+(v===bfTargetMode?' selected':'')+'>'+v+'</option>').join('')+'</select></div>'+
+       ['normal','reduced'].map(v=>'<option value="'+v+'"'+(v===bfTargetMode?' selected':'')+'>'+(v==='normal'?'Full':'Light')+'</option>').join('')+'</select></div>'+
      viewBfExercises(bfSid,bfw)+
      '<div class="bfSub">Or totals only</div>'+
      '<div class="field"><label>Reps</label><input id="bfReps" type="number" step="1" inputmode="numeric" placeholder="0" value="'+esc(bfReps)+'" oninput="bfSet(\'reps\',this.value)">'+
@@ -2048,7 +2060,7 @@ function viewEdit(){
   });
   h+='<div class="acts"><button class="btn" onclick="addEx(\''+s.id+'\')">Add exercise</button>'+
      '<button class="btn ghost" onclick="resetPlan()">Use revised defaults</button></div>';
-  h+='<div class="note">Targets stay stable across calendar weeks. Choose reduced or normal targets in Train at any time. Exercises with a ladder offer step ups in Train after clean sessions; nothing changes until you accept. Their progress text here is for reference; Train shows it only for exercises without a ladder. Tier never adds work automatically. Rest is in seconds. Using revised defaults archives your current plan and unfinished log in Data.</div>';
+  h+='<div class="note">Targets stay stable across calendar weeks. For a lighter day, turn on Light session in Train; it lasts for that workout only. Exercises with a ladder offer step ups in Train after clean sessions; nothing changes until you accept. Their progress text here is for reference; Train shows it only for exercises without a ladder. Tier never adds work automatically. Rest is in seconds. Using revised defaults archives your current plan and unfinished log in Data.</div>';
   return h;
 }
 
