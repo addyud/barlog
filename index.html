@@ -1092,12 +1092,17 @@ function viewStep(s,e,p,logged){
   return '<div class="stepWait">'+esc(line)+'</div>';
 }
 // Next-day soreness. Asked once a day on Train before any set is logged, and stored on the
-// latest earlier session within three days. Too sore breaks that session's step-up streaks
+// most recent session once it finished at least four hours ago (a session after midnight
+// still counts) and within three days. Sessions saved before finish times were recorded
+// qualify by date alone. Too sore breaks that session's step-up streaks
 // and, after the first session at a new target, offers a step back.
 const SORENESS={fresh:"Fresh",sore:"A bit sore",very:"Too sore"};
+const READY_AFTER_MS=4*3600000;
 function readinessTarget(){
-  const today=dayKey(), row=historyRows().find(({record:r})=>String(r.date)<today);
-  return row&&String(row.record.date)>=datePlus(today,-3)?row.record:null;
+  const today=dayKey(), row=historyRows().find(({record:r})=>String(r.date)<=today);
+  if(!row||String(row.record.date)<datePlus(today,-3))return null;
+  const done=Date.parse(row.record.finishedAt);
+  return Number.isFinite(done)&&Date.now()-done<READY_AFTER_MS?null:row.record;
 }
 function setSoreness(v){
   if(!SORENESS[v]&&v!=="skip")return;
@@ -1426,7 +1431,7 @@ function finish(){
   });
   openHist=-1;
   const feel=FEELS[S.today.feel]?{feel:S.today.feel,...(S.today.feelEx&&S.today.feelEx.length?{feelEx:S.today.feelEx.slice()}:{})}:{};
-  S.history.unshift({date:S.today.date||dayKey(),sid:s.id,week:calendarWeek(S.today.date||dayKey()),weekSource:"calendar",targetMode:S.targetMode,reps:reps,secs:secs,detail:detail,...feel,...(S.today.rice?{rice:true}:{})});
+  S.history.unshift({date:S.today.date||dayKey(),finishedAt:new Date().toISOString(),sid:s.id,week:calendarWeek(S.today.date||dayKey()),weekSource:"calendar",targetMode:S.targetMode,reps:reps,secs:secs,detail:detail,...feel,...(S.today.rice?{rice:true}:{})});
   // Keep older entries; backups include the complete history.
   if(!s.testOnly)advanceAfter(s.id);
   delete S.progress.pending[s.id];
@@ -1524,6 +1529,7 @@ function addPast(){
     if(!reps&&!secs){ alert("Log at least one exercise, or enter rep/sec totals."); return; }
   }
   const entry={date:d,sid:sid,week:wk,weekSource:"calendar",targetMode:bfTargetMode,reps:reps,secs:secs,manual:true};
+  if(d===dayKey())entry.finishedAt=new Date().toISOString(); // a same-day backfill is treated as just finished
   if(detail.length)entry.detail=detail;
   if(note)entry.note=note;
   if(rice)entry.rice=true;
