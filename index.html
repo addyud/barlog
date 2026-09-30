@@ -717,7 +717,7 @@ function blank(){return{
   plan:JSON.parse(JSON.stringify(DEFAULT_PLAN)),
   today:{date:"",sid:"A",log:{},band:{},rice:false},
   history:[], prs:{fingertip:[],planche:[],pullup:[],hspu:[],lever:[],dip:[],pushup:[]},
-  progress:{log:[],pending:{},snooze:{},acks:{}}
+  progress:{log:[],pending:{},snooze:{},acks:{},reducedSnooze:""}
 };}
 
 // Restore only the omitted rice preparation in already-adopted v4 plans, once.
@@ -883,7 +883,7 @@ const rotAt=n=>{ const c=cycle(); return c.length?c[((n%c.length)+c.length)%c.le
    marked Clean for that exercise, on normal targets, at the current target, with every
    set met. One step up per workout until that workout has been trained again. */
 const ER_LADDER={unit:"reps",mode:"one",step:1,top:20,clean:1,reset:15,next:"2 \u00d7 20 reached. Switch to a heavier band and rebuild from 15."};
-const LEVER_LADDER={unit:"s",mode:"one",step:1,top:8,clean:2,next:"Holds reached 8s. Keep building toward 10s, or move to a slightly longer lever with shorter holds."};
+const LEVER_LADDER={unit:"s",mode:"half",step:1,top:8,clean:2,next:"Holds reached 8s. Keep building toward 10s, or move to a slightly longer lever with shorter holds."};
 const LADDERS={
   a8:LEVER_LADDER, c8:LEVER_LADDER,
   b3:{unit:"reps",mode:"one",step:1,top:2,clean:1,next:"5 \u00d7 2 reached. Pick the next step yourself: more reps, deficit depth or a harder variation."},
@@ -893,8 +893,8 @@ const LADDERS={
   c3:{unit:"reps",mode:"one",step:1,top:6,clean:2,next:"4 \u00d7 6 reached. Reassess difficulty before adding sets."},
   c6:{unit:"reps",mode:"one",step:1,top:8,clean:2,next:"3 \u00d7 8 reached. Time for a harder variation."},
   d11finger:{unit:"s",mode:"all",step:1,top:10,clean:1,next:"3 \u00d7 10s reached. Build the weaker side toward about 15s, then add brief free-hand lifts of 1\u20132s."},
-  d12tuck:{unit:"s",mode:"one",step:1,top:8,clean:2,reset:5,next:"4 \u00d7 8s reached. Next: flatten the back (hips to shoulder height) at 5s holds, then advanced tuck at 3s."},
-  d9lean:{unit:"s",mode:"one",step:1,top:8,clean:2,reset:5,next:"8s at this depth. Go slightly deeper and drop back to 5s."},
+  d12tuck:{unit:"s",mode:"half",step:1,top:8,clean:2,reset:5,next:"4 \u00d7 8s reached. Next: flatten the back (hips to shoulder height) at 5s holds, then advanced tuck at 3s."},
+  d9lean:{unit:"s",mode:"half",step:1,top:8,clean:2,reset:5,next:"8s at this depth. Go slightly deeper and drop back to 5s."},
   d13support:{unit:"s",mode:"all",step:3,top:30,clean:2,reset:15,next:"3 \u00d7 30s reached. Turn the rings out at shorter holds and rebuild to 30s."}
 };
 const FEELS={clean:"Clean",grindy:"Grindy",ache:"Ache"};
@@ -922,7 +922,8 @@ function fmtTargets(t,e,bare){
   return (cap?"up to ":"")+groups.map(([n,v])=>n+"\u00d7"+v+unitOf(e)).join(" + ");
 }
 // "one" adds to the first set holding the lowest target and removes from the last set
-// holding the highest, so stepping up and back retrace the same rungs.
+// holding the highest. "half" follows "add to some holds, then all": from even targets it
+// raises the first half of the sets, then the rest. Stepping back retraces the same rungs.
 function stepTargets(t,r,dir){
   if(!t.length)return null;
   const lo=Math.min.apply(null,t), hi=Math.max.apply(null,t), floor=r.floor||1;
@@ -930,6 +931,12 @@ function stepTargets(t,r,dir){
   if(dir<0&&hi-r.step<floor)return null;
   if(r.mode==="all")return t.map(v=>dir>0?Math.min(r.top,v+r.step):Math.max(floor,v-r.step));
   const out=t.slice();
+  if(r.mode==="half"){
+    const v=dir>0?lo:hi, at=out.map((x,i)=>x===v?i:-1).filter(i=>i>=0);
+    const pick=at.length<out.length?at:dir>0?at.slice(0,Math.ceil(at.length/2)):at.slice(at.length-Math.floor(at.length/2));
+    pick.forEach(i=>{ out[i]=dir>0?Math.min(r.top,v+r.step):v-r.step; });
+    return out;
+  }
   if(dir>0){ const i=out.indexOf(lo); out[i]=Math.min(r.top,lo+r.step); }
   else{ const i=out.lastIndexOf(hi); out[i]=hi-r.step; }
   return out;
@@ -1051,6 +1058,151 @@ function viewFeel(s){
       done.map(e=>'<button class="chip'+(picked.includes(e.id)?' on':'')+'" aria-pressed="'+picked.includes(e.id)+'" onclick="toggleFeelEx(\''+e.id+'\')">'+esc(e.n)+'</button>').join('')+'</div>';
   }
   return h+'<div class="note">Only exercises marked Clean, with every set at target, count toward a step up. Ache on a named exercise offers a step back next time.</div>';
+}
+
+/* ── check-in review ──
+   Grindy and Ache flags from the last six weeks, per exercise, plus a suggestion (never an
+   automatic switch) to use Reduced targets after ache in two sessions within a week. */
+function checkinWindow(weeks){
+  const since=datePlus(dayKey(),-7*weeks);
+  return historyRows().map(x=>x.record).filter(r=>String(r.date)>=since);
+}
+function checkinSummary(weeks=6){
+  const rows=checkinWindow(weeks), rated=rows.filter(r=>FEELS[r.feel]), flags={};
+  for(const r of rated){
+    if(r.feel==="clean")continue;
+    const names=r.feelEx&&r.feelEx.length?r.feelEx.map(id=>((r.detail||[]).find(x=>x.id===id)||{}).n||id):["Whole session"];
+    for(const n of names){
+      const f=flags[n]||(flags[n]={grindy:0,ache:0,last:""});
+      f[r.feel]++; if(String(r.date)>f.last)f.last=String(r.date);
+    }
+  }
+  const count=k=>rated.filter(r=>r.feel===k).length;
+  return {total:rows.length,rated:rated.length,clean:count("clean"),grindy:count("grindy"),ache:count("ache"),flags};
+}
+function reducedHint(){
+  if(S.targetMode!=="normal")return null;
+  const aches=checkinWindow(1).filter(r=>r.feel==="ache");
+  if(aches.length<2)return null;
+  const key=aches.map(r=>r.date).sort().pop();
+  return S.progress.reducedSnooze===key?null:{count:aches.length,key};
+}
+function viewReducedHint(){
+  const h=reducedHint(); if(!h)return "";
+  return '<div class="step back"><b>Ache in '+h.count+' sessions this week.</b> Switch to Reduced targets for a few sessions? Reduced sessions don’t count toward step ups.'+
+    '<div class="rowBtns"><button class="miniB go" onclick="setTargetMode(\'reduced\')">Switch to Reduced</button>'+
+    '<button class="miniB" onclick="snoozeReduced()">Not now</button></div></div>';
+}
+function snoozeReduced(){ const h=reducedHint(); if(!h)return; S.progress.reducedSnooze=h.key; commit(); }
+function viewCheckins(){
+  const c=checkinSummary(); if(!c.rated)return "";
+  let h='<div class="sec">Check-ins · last 6 weeks</div><div class="note">Rated '+c.rated+' of '+c.total+' sessions · Clean '+c.clean+' · Grindy '+c.grindy+' · Ache '+c.ache+'</div>';
+  const names=Object.keys(c.flags).sort((a,b)=>(c.flags[b].ache-c.flags[a].ache)||(c.flags[b].grindy-c.flags[a].grindy));
+  names.forEach(n=>{
+    const f=c.flags[n], bits=[]; if(f.ache)bits.push("Ache "+f.ache); if(f.grindy)bits.push("Grindy "+f.grindy);
+    h+='<div class="hist"><span class="histX"><span style="color:var(--chalk)">'+esc(n)+'</span> · '+esc(bits.join(" · "))+'</span><span class="histD" style="min-width:0">latest '+esc(shortD(f.last))+'</span></div>';
+  });
+  if(!names.length)h+='<div class="note">No grindy or achy exercises flagged.</div>';
+  return h;
+}
+
+/* ── AI coach summary ──
+   Plain text for pasting into an AI assistant. Built on the device; nothing is sent anywhere. */
+function coachSummary(weeks=6){
+  const since=datePlus(dayKey(),-7*weeks), L=[];
+  L.push("Calisthenics training log exported from Bar.Log on "+dayKey()+". "+weekText(dayKey())+" of the calendar; "+S.targetMode+" targets selected.");
+  L.push("","CURRENT PLAN (A–D rotation; next up: "+nextId()+")");
+  S.plan.filter(p=>!p.testOnly).forEach(p=>{
+    L.push(p.id+" · "+p.name);
+    p.ex.filter(e=>e.tier!=="prep").forEach(e=>{
+      const dose=e.budget?e.reps+" min total":fmtTargets(fullTargets(e),e);
+      const r=ladderFor(e);
+      L.push("- "+e.n+": "+dose+(e.rest?", rest "+e.rest+"s":"")+(e.optional?", optional":"")+(r?", ladder top "+r.top+unitOf(e):""));
+    });
+  });
+  const rows=historyRows().map(x=>x.record).filter(r=>String(r.date)>=since);
+  const switches=(S.planArchives||[]).map(x=>String(x.savedAt||"").slice(0,10)).filter(d=>d>=since).sort();
+  if(switches.length)L.push("","Routine changed on "+switches.join(", ")+". Sessions before that follow the earlier plan, so exercise names and doses differ.");
+  L.push("","SESSIONS SINCE "+since+" (newest first; check-in in brackets)");
+  if(!rows.length)L.push("None.");
+  rows.forEach(r=>{
+    const feel=FEELS[r.feel]?" ["+FEELS[r.feel]+(r.feelEx&&r.feelEx.length?": "+r.feelEx.map(id=>((r.detail||[]).find(x=>x.id===id)||{}).n||id).join(", "):"")+"]":" [not rated]";
+    L.push(r.date+" "+r.sid+(r.targetMode==="reduced"?" reduced":"")+(r.manual?" (logged later)":"")+feel);
+    (r.detail||[]).filter(x=>x.unit!=="min").forEach(x=>{
+      const missed=Array.isArray(x.target)&&!metTarget(x);
+      L.push("  "+x.n+": "+x.sets.join(",")+(x.unit==="reps"?"":x.unit)+(missed?" (target "+x.target.join(",")+")":"")+(x.band?" band "+x.band:""));
+    });
+    if(r.note)L.push("  Note: "+r.note);
+  });
+  const steps=S.progress.log.filter(x=>x.date>=since);
+  L.push("","STEP UPS AND MILESTONES");
+  L.push(...(steps.length?steps.map(x=>x.date+" "+x.sid+" "+x.n+": "+(STEP_KINDS[x.kind]||x.kind)+" "+x.from+(x.to?" → "+x.to:"")):["None."]));
+  const maxes=Object.keys(PRS).filter(k=>(S.prs[k]||[]).length).map(k=>{const l=S.prs[k][S.prs[k].length-1];return PRS[k][0]+" "+l.value+PRS[k][1]+" ("+l.date+")";});
+  L.push("","LATEST MAXES",maxes.length?maxes.join("; "):"None recorded.");
+  L.push("","My question: ");
+  return L.join("\n");
+}
+function shareCoach(){
+  const t=coachSummary();
+  if(navigator.share){ navigator.share({title:"Bar.Log summary",text:t}).catch(e=>{ if(e&&e.name!=="AbortError")copyCoach(); }); return; }
+  copyCoach();
+}
+function copyCoach(){
+  const t=coachSummary(), ok=()=>toast("Summary copied. Paste it into your AI assistant"), no=()=>toast("Copy blocked on this browser");
+  if(navigator.clipboard&&navigator.clipboard.writeText)navigator.clipboard.writeText(t).then(ok,()=>{ legacyCopy(t)?ok():no(); });
+  else legacyCopy(t)?ok():no();
+}
+
+/* ── screen awake ──
+   Keeps the screen on while a workout has logged sets, so the rest timer and its alert
+   stay live between sets. The browser drops the lock when the app is hidden; it is taken
+   again on return. */
+let wakeLock=null;
+function syncAwake(){
+  const want=!!(S&&hasDraft());
+  if(!navigator.wakeLock)return;
+  if(want&&!wakeLock&&document.visibilityState==="visible"){
+    wakeLock="pending";
+    navigator.wakeLock.request("screen").then(l=>{
+      if(!hasDraft()){ l.release().catch(()=>{}); wakeLock=null; return; }
+      wakeLock=l; l.addEventListener("release",()=>{ if(wakeLock===l)wakeLock=null; });
+    },()=>{ wakeLock=null; });
+  }else if(!want&&wakeLock&&wakeLock!=="pending"){
+    const l=wakeLock; wakeLock=null; l.release().catch(()=>{});
+  }
+}
+
+/* ── backup reminder and install ── */
+function markBackup(){ S.backup={date:dayKey(),count:S.history.length}; save(); if(tab==="data")render(); }
+function backupDue(){
+  const b=S.backup, since=Math.max(0,S.history.length-(b?b.count:0));
+  const days=b&&dateNumber(b.date)!=null?dateNumber(dayKey())-dateNumber(b.date):null;
+  const due=b?since>=8||(since>0&&days>=14):S.history.length>=5;
+  return {due,since,days,date:b&&b.date};
+}
+function backupStatus(){
+  const b=backupDue();
+  if(!b.date)return "No backup made from this device yet.";
+  return "Last backup "+(b.days===0?"today":b.days===1?"yesterday":b.days+" days ago")+" · "+b.since+" session"+(b.since===1?"":"s")+" since.";
+}
+function viewBackupNudge(){
+  const b=backupDue(); if(!b.due)return "";
+  return '<div class="step"><b>Time for a backup.</b> '+esc(b.date?b.since+" sessions since your last one.":"Your log lives only on this device.")+
+    '<div class="rowBtns"><button class="miniB go" onclick="'+(navigator.share?'shareData()':'exportData()')+'">Back up now</button>'+
+    '<button class="miniB" onclick="go(\'data\')">Backup options</button></div></div>';
+}
+let installPrompt=null;
+const isInstalled=()=>!!(window.matchMedia&&window.matchMedia("(display-mode: standalone)").matches);
+function installApp(){
+  if(!installPrompt)return;
+  const p=installPrompt; installPrompt=null;
+  p.prompt(); (p.userChoice||Promise.resolve()).then(()=>render(),()=>render());
+}
+function viewInstall(){
+  if(isInstalled())return "";
+  return '<div class="sec">Install</div><div class="note">Installed, the app opens full screen, works offline and is far less likely to have its storage cleared.'+
+    (installPrompt?'':' Use your browser menu: Install app, or Add to Home screen.')+'</div>'+
+    (installPrompt?'<div class="acts"><button class="btn" onclick="installApp()">Install app</button></div>':'');
 }
 
 /* ── alert ── */
@@ -1455,6 +1607,7 @@ function exportData(){
   a.download=backupName();
   a.click();
   setTimeout(()=>URL.revokeObjectURL(a.href),2000);
+  markBackup();
 }
 
 function legacyCopy(t){
@@ -1469,7 +1622,7 @@ function legacyCopy(t){
 }
 function copyData(){
   const t=snapshot();
-  const ok=()=>toast("Backup copied to clipboard");
+  const ok=()=>{ markBackup(); toast("Backup copied to clipboard"); };
   const no=()=>toast("Copy blocked — use Export file or Share");
   if(navigator.clipboard&&navigator.clipboard.writeText){
     navigator.clipboard.writeText(t).then(ok,()=>{ legacyCopy(t)?ok():no(); });
@@ -1485,12 +1638,12 @@ function shareData(){
   let file=null;
   try{ file=new File([t],name,{type:"application/json"}); }catch(e){}
   if(file&&navigator.canShare&&navigator.canShare({files:[file]})){
-    navigator.share({files:[file],title:name}).catch(e=>{
+    navigator.share({files:[file],title:name}).then(markBackup,e=>{
       if(e&&e.name==="AbortError")return;
-      navigator.share({title:name,text:t}).catch(quit);
+      navigator.share({title:name,text:t}).then(markBackup,quit);
     });
   }else{
-    navigator.share({title:name,text:t}).catch(quit);
+    navigator.share({title:name,text:t}).then(markBackup,quit);
   }
 }
 
@@ -1566,6 +1719,7 @@ function render(){
   if(tab==="data")h+=viewData();
 
   el.innerHTML=h;
+  syncAwake();
 }
 function go(t){ pendingSession=null;tab=t; render(); }
 
@@ -1607,7 +1761,7 @@ function viewTrain(ph){
     if(hasDraft())h+='<div class="note">Finish or clear this workout before changing. Your logged sets stay with this workout.</div>';
   }
   h+='</details>';
-  h+=viewCalendar()+targetControl();
+  h+=viewCalendar()+targetControl()+viewReducedHint();
 
   /* Daily rice tracking is available with every routine. */
   h+='<div class="daily'+(S.today.rice?" on":"")+'" onclick="toggleRice()"><span class="box">'+(S.today.rice?"✓":"")+'</span>'+
@@ -1709,7 +1863,7 @@ function viewSteps(){
   return h;
 }
 function viewProgress(){
-  let h=viewHistory()+viewSteps()+'<div class="sec">Maxes</div>';
+  let h=viewBackupNudge()+viewHistory()+viewSteps()+viewCheckins()+'<div class="sec">Maxes</div>';
   Object.keys(PRS).forEach(k=>{
     const list=S.prs[k]||[], last=list.length?list[list.length-1].value:null;
     h+='<div class="pr"'+(list.length?' onclick="togglePr(\''+k+'\')" style="cursor:pointer"':'')+'>'+
@@ -1762,6 +1916,9 @@ function viewProgress(){
        '<span id="bfRotHint">'+rotHint(bfAdvOn())+'</span></span></div>'+
      '<div class="acts"><button class="btn" onclick="addPast()">Add session</button></div>';
 
+  h+='<div class="sec">Review with AI</div>'+
+     '<div class="note">A plain-text summary of your plan and the last six weeks: sets, check-ins, step ups and maxes. Share it to your AI app, add your question, and ask for a review. It is built on this device and only goes where you send it.</div>'+
+     '<div class="acts">'+(navigator.share?'<button class="btn" onclick="shareCoach()">Share summary</button><button class="btn ghost" onclick="copyCoach()">Copy</button>':'<button class="btn" onclick="copyCoach()">Copy summary</button>')+'</div>';
   h+='<div class="sec">Rotation</div>'+
      '<div class="note">Next up is '+nextId()+'. If the loop has drifted out of step with what you actually did, nudge it.</div>'+
      '<div class="acts"><button class="btn ghost" style="flex:1" onclick="bumpRot(-1)">← back one</button>'+
@@ -1810,7 +1967,9 @@ function viewData(){
     '<div class="note">'+persistNote()+'</div>'+
     (persistState==="granted"||persistState==="checking"?'':
       '<div class="acts"><button class="btn ghost" style="flex:1" onclick="askPersist()">Ask the browser to protect it</button></div>')+
+    viewInstall()+
     '<div class="sec">Backup</div>'+
+    '<div class="note"><b style="color:var(--chalk)">'+esc(backupStatus())+'</b></div>'+
     '<div class="note">Everything lives in this browser only. Clearing site data or switching phones loses it, so move a copy off the device now and then. '+
       (canShare?'Share hands the file straight to AirDrop, Messages or Files.':'Copy puts the whole backup on the clipboard.')+'</div>'+
     '<div class="acts wrapb"><button class="btn" onclick="exportData()">Export file</button>'+
@@ -1841,7 +2000,8 @@ function refreshCalendarDay(){
   lastCalendarDay=dayKey();refreshDraftDate();save();render();
 }
 if(window.addEventListener)window.addEventListener("focus",refreshCalendarDay);
-if(document.addEventListener)document.addEventListener("visibilitychange",()=>{if(!document.hidden)refreshCalendarDay();});
+if(document.addEventListener)document.addEventListener("visibilitychange",()=>{if(!document.hidden){refreshCalendarDay();syncAwake();}});
+if(window.addEventListener)window.addEventListener("beforeinstallprompt",e=>{ e.preventDefault(); installPrompt=e; if(tab==="data")render(); });
 setInterval(refreshCalendarDay,60000);
 checkPersist().then(()=>{ if(tab==="data")render(); });
 if(navigator.serviceWorker&&location.protocol!=="file:")navigator.serviceWorker.register("sw.js").catch(e=>console.error("offline cache unavailable",e));
