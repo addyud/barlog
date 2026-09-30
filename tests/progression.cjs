@@ -211,4 +211,20 @@ test('soreness shows in the check-in review, history, AI summary and the Reduced
  assert.match(a.run('coachSummary()'),/2026-09-20 B \[Clean; next day: too sore\]/);
  a.run('openHist=2');assert.match(a.run('viewHistory()'),/Clean · next day too sore/);
 });
+test('When to progress shows only where no ladder applies; dips wording is repaired once',()=>{
+ const a=boot();
+ const train=sid=>a.run(`S.today.sid='${sid}';viewTrain(phase())`);
+ const dropdowns=sid=>(train(sid).match(/<summary>When to progress<\/summary>/g)||[]).length;
+ assert.equal(dropdowns('A'),3,'OAHS practice, explosive pull ups, ring rows');
+ assert.equal(dropdowns('B'),1,'deficit HSPU only');assert.equal(dropdowns('C'),2,'OAHS practice, light lean');assert.equal(dropdowns('D'),1,'OAHS shifts');
+ assert.ok(!/When to progress<\/summary>Ladder: 5×1/.test(train('B')));
+ a.run(`editField('B','b11push','unit','s')`);assert.match(train('B'),/When to progress<\/summary>When all sets feel easy/,'ladder off, prose back');
+ const saved=a.json('S');delete saved.dipsCopyVersion;saved.plan[1].ex.find(e=>e.id==='b10dips').progression='If your shoulder stays quiet for two weeks, add a rep to one set.';
+ const b=boot(saved);assert.equal(b.run(`S.plan[1].ex.find(e=>e.id==='b10dips').progression`),'After two clean sessions with a quiet shoulder, add a rep to one set.');
+ assert.equal(b.run('S.dipsCopyVersion'),1);
+ const own=a.json('S');delete own.dipsCopyVersion;own.plan[1].ex.find(e=>e.id==='b10dips').progression='My dips rule';
+ assert.equal(boot(own).run(`S.plan[1].ex.find(e=>e.id==='b10dips').progression`),'My dips rule','personal wording kept');
+ const later=b.json('S');later.plan[1].ex.find(e=>e.id==='b10dips').progression=saved.plan[1].ex.find(e=>e.id==='b10dips').progression;
+ assert.equal(boot(later).run(`S.plan[1].ex.find(e=>e.id==='b10dips').progression`),saved.plan[1].ex.find(e=>e.id==='b10dips').progression,'runs once only');
+});
 console.log(`${passed} progression groups passed.`);

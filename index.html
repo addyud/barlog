@@ -275,7 +275,7 @@ const DEFAULT_PLAN = [
         "rest": 120,
         "optional": true,
         "note": "Provisional. Comfortable depth, reps in reserve. Stop if your shoulder aches; note it in the log.",
-        "progression": "If your shoulder stays quiet for two weeks, add a rep to one set."
+        "progression": "After two clean sessions with a quiet shoulder, add a rep to one set."
       },
       {
         "id": "b11push",
@@ -787,6 +787,12 @@ function updateDeficitDescent(plan){
   const previous=["0–2 clean singles on bars, only if you're still fresh after the regular HSPUs. No wall.",...OLD_EX_NOTES.b4free.note];
   if(ex&&previous.includes(ex.note))ex.note=DEFAULT_PLAN.find(p=>p.id==="B").ex.find(e=>e.id==="b4free").note;
 }
+// The dips ladder counts clean sessions, not weeks; update only the untouched default wording.
+const DIPS_PROGRESS_BEFORE="If your shoulder stays quiet for two weeks, add a rep to one set.";
+function updateDipsCopy(plan){
+  const e=plan.find(p=>p.id==="B")?.ex.find(e=>e.id==="b10dips");
+  if(e&&e.progression===DIPS_PROGRESS_BEFORE)e.progression=DEFAULT_PLAN.find(p=>p.id==="B").ex.find(e=>e.id==="b10dips").progression;
+}
 // One-time repairs for saved plans, applied in order. Each stores its key once it has run,
 // so later deliberate edits stick. v4Only patches leave older, unadopted routines alone.
 const PLAN_PATCHES=[
@@ -797,6 +803,7 @@ const PLAN_PATCHES=[
   {key:"deficitDescentVersion",v4Only:true,apply:updateDeficitDescent},
   {key:"calendarCopyVersion",v4Only:false,apply:updateCalendarCopy},
   {key:"benchmarkEntryVersion",v4Only:false,apply:updateBenchmarkEntryCopy},
+  {key:"dipsCopyVersion",v4Only:true,apply:updateDipsCopy},
 ];
 function patchFlags(value){ return Object.fromEntries(PLAN_PATCHES.map(p=>[p.key,value(p.key)])); }
 // `saved` is the stored record (state, backup or archive) whose flags say what already ran.
@@ -1865,7 +1872,8 @@ function viewTrain(ph){
       const band=(S.today.band&&S.today.band[e.id])||"";
       h+='<div class="field"><label>Band</label><input value="'+esc(band)+'" placeholder="color or resistance" oninput="setTodayBand(\''+e.id+'\',this.value)"></div>';
     }
-    if(e.progression)h+='<details class="exNote"><summary>When to progress</summary>'+esc(e.progression)+'</details>';
+    // Laddered exercises show their rule live in the step card; the prose stays for the rest.
+    if(e.progression&&!ladderFor(e))h+='<details class="exNote"><summary>When to progress</summary>'+esc(e.progression)+'</details>';
     h+='<div class="chips">';
     for(let i=0;i<Math.max(cnt,log.length);i++){
       if(i>=cnt&&log[i]==null)continue; // Keep completed values visible when reduced targets hide unlogged sets.
@@ -2034,7 +2042,7 @@ function viewEdit(){
   });
   h+='<div class="acts"><button class="btn" onclick="addEx(\''+s.id+'\')">Add exercise</button>'+
      '<button class="btn ghost" onclick="resetPlan()">Use revised defaults</button></div>';
-  h+='<div class="note">Targets stay stable across calendar weeks. Choose reduced or normal targets in Train at any time. Exercises with a ladder offer step ups in Train after clean sessions; nothing changes until you accept. Tier never adds work automatically. Rest is in seconds. Using revised defaults archives your current plan and unfinished log in Data.</div>';
+  h+='<div class="note">Targets stay stable across calendar weeks. Choose reduced or normal targets in Train at any time. Exercises with a ladder offer step ups in Train after clean sessions; nothing changes until you accept. Their progress text here is for reference; Train shows it only for exercises without a ladder. Tier never adds work automatically. Rest is in seconds. Using revised defaults archives your current plan and unfinished log in Data.</div>';
   return h;
 }
 
