@@ -92,10 +92,10 @@ test('ache on a named exercise offers a step back; unnamed ache offers nothing',
  assert.equal(ex(a,'D','d12tuck').reps,6);
 });
 test('milestones at the top can be acknowledged or reset to the planned restart',()=>{
- const a=boot();a.run(`S.plan[1].ex.find(e=>e.id==='b12er').reps=20`);train(a,'B',['b12er'],'clean');
+ const a=boot();a.run(`S.plan[1].ex.find(e=>e.id==='b12er').reps=20;S.plan[3].ex.find(e=>e.id==='d14er').reps=20`);train(a,'B',['b12er'],'clean');
  let p=steps(a,'B').b12er;assert.equal(p.kind,'milestone');
  a.run(`S.today.sid='B'`);assert.ok(a.run('viewTrain(phase())').includes('Switched · reset to 2 × 15'));
- a.run(`S.today.sid='B';stepAction('b12er','reset')`);assert.equal(ex(a,'B','b12er').reps,15);assert.equal(a.run('S.progress.log[0].kind'),'reset');
+ a.run(`S.today.sid='B';stepAction('b12er','reset')`);assert.equal(ex(a,'B','b12er').reps,15);assert.equal(ex(a,'D','d14er').reps,15,'shared ladder resets on both workouts');assert.equal(a.run('S.progress.log[0].kind'),'reset');
  a.run(`S.plan[2].ex.find(e=>e.id==='c3').reps=6`);train(a,'C',['c3'],'clean');train(a,'C',['c3'],'clean');
  assert.equal(steps(a,'C').c3.kind,'milestone');a.run(`S.today.sid='C';stepAction('c3','ack')`);
  assert.equal(steps(a,'C').c3.kind,'top');assert.equal(a.run('S.progress.log[0].kind'),'milestone');assert.equal(ex(a,'C','c3').reps,6);
@@ -120,7 +120,7 @@ test('progress and per-set targets survive reload and backup; legacy saves gain 
  const b=boot(JSON.parse(a.store.get('barlog.v1')));assert.deepEqual(b.json('S.progress'),a.json('S.progress'));
  assert.deepEqual(ex(b,'B','b3').perSet,[2,1,1,1,1]);
  b.set('backupText',a.run('snapshot()'));b.run('wipe();applyBackup(backupText)');assert.deepEqual(ex(b,'B','b3').perSet,[2,1,1,1,1]);
- const legacy=a.json('S');delete legacy.progress;const c=boot(legacy);assert.deepEqual(c.json('S.progress'),{log:[],pending:{},snooze:{},acks:{},reducedSnooze:''});
+ const legacy=a.json('S');delete legacy.progress;const c=boot(legacy);assert.deepEqual(c.json('S.progress'),{log:[],pending:{},snooze:{},acks:{},reducedSnooze:'',readyDate:'',readySkip:''});
  const bad=a.json('S');bad.plan[1].ex.find(e=>e.id==='b3').perSet=[2,1];assert.deepEqual(boot(bad).json(`fullTargets(S.plan[1].ex.find(e=>e.id==='b3'))`),[2,2,2,2,2]);
 });
 test('rated backfills count; they clear a pending change only when on or after it',()=>{
@@ -137,5 +137,78 @@ test('every view renders with suggestions, check-in and step log present',()=>{
  const prog=a.run('viewProgress()');assert.ok(prog.includes('Step ups and milestones'));assert.ok(prog.includes('5 × 1 → 1×2 + 4×1'));
  assert.ok(a.run(`editSess='B';viewEdit()`).includes('Per-set targets from step ups: 1×2 + 4×1'));
  for(const t of ['train','progress','edit','data'])a.run(`go('${t}')`);
+});
+test('lever on A and C and external rotations on B and D share one ladder each',()=>{
+ const a=boot();
+ train(a,'A',['a8'],'clean');assert.equal(steps(a,'A').a8.streak,1);assert.equal(steps(a,'C').c8.streak,1,'an A session counts for C');
+ assert.deepEqual(steps(a,'C').c8.shared,['A']);
+ assert.match(a.run(`S.today.sid='C';viewTrain(phase())`),/at this target across C and A · 1 so far/);
+ train(a,'C',['c8'],'clean');
+ let p=steps(a,'A').a8;assert.equal(p.kind,'up');assert.deepEqual(p.to,[7,7,7,6,6]);
+ assert.deepEqual(p.moves.map(m=>[m.sid,m.e.id,m.to]),[['A','a8',[7,7,7,6,6]],['C','c8',[7,7,6,6]]]);
+ assert.match(a.run(`S.today.sid='A';viewTrain(phase())`),/2 clean sessions across A and C at 5 × 6s\. Next: 3×7s \+ 2×6s\. Also changes C\./);
+ a.run(`stepAction('a8','accept')`);
+ assert.deepEqual(ex(a,'A','a8').perSet,[7,7,7,6,6]);assert.deepEqual(ex(a,'C','c8').perSet,[7,7,6,6]);
+ assert.deepEqual(a.json('S.progress.log.map(x=>x.sid+x.id)'),['Cc8','Aa8']);
+ assert.equal(a.run('S.progress.pending.A.id'),'a8');assert.equal(a.run('S.progress.pending.C.id'),'c8');
+ train(a,'C',['c8'],'clean');p=steps(a,'A').a8;assert.equal(p.kind,'wait');assert.equal(p.streak,1,'new targets count on either workout');
+ train(a,'A',['a8'],'clean');assert.equal(steps(a,'C').c8.kind,'up');
+});
+test('a shared step waits for pending changes in either workout, and Not yet covers both',()=>{
+ const a=boot();a.run(`S.plan[2].ex.find(e=>e.id==='c3').reps=5`);
+ train(a,'C',['c8','c3'],'clean');train(a,'C',['c8','c3'],'clean');
+ a.run(`S.today.sid='C'`);let p=steps(a,'C');assert.equal(p.c8.kind,'up');assert.equal(p.c3.kind,'queued');
+ a.run(`stepAction('c8','later')`);p=steps(a,'C');assert.equal(p.c3.kind,'up');assert.ok(steps(a,'A').a8.snoozed,'snooze is shared');
+ a.run(`stepAction('c3','accept')`);
+ const q=steps(a,'C').c8;assert.ok(q.snoozed);
+ train(a,'A',['a8'],'clean');const r=steps(a,'A').a8;assert.equal(r.kind,'queued','C still has an untrained pull up change');assert.equal(r.behind,'Pull ups');
+ train(a,'C',['c8','c3'],'clean');assert.equal(steps(a,'A').a8.kind,'up');
+});
+test('ache on external rotations in D offers the shared step back from B',()=>{
+ const a=boot();a.run(`S.plan[1].ex.find(e=>e.id==='b12er').perSet=[16,15];S.plan[1].ex.find(e=>e.id==='b12er').reps=16;S.plan[3].ex.find(e=>e.id==='d14er').perSet=[16,15];S.plan[3].ex.find(e=>e.id==='d14er').reps=16`);
+ train(a,'D',['d14er'],'ache',['d14er']);a.run(`S.today.sid='B'`);
+ const p=steps(a,'B').b12er;assert.equal(p.kind,'back');assert.equal(p.reason,'ache');
+ assert.match(a.run('viewTrain(phase())'),/Step back to 2 × 15\?.*Also changes D\./s);
+ a.run(`stepAction('b12er','accept')`);assert.equal(ex(a,'B','b12er').reps,15);assert.equal(ex(a,'D','d14er').reps,15);
+});
+test('next-day soreness is asked once, stored on the previous session and editable that day',()=>{
+ const a=boot();assert.equal(a.run('viewReadiness()'),'','no history');
+ train(a,'B',['b3'],'clean');assert.equal(a.run('viewReadiness()'),'','only a session from today');
+ a.time('2026-09-26T08:00:00');a.run('refreshCalendarDay()');
+ let html=a.run('viewReadiness()');assert.match(html,/How do you feel today\?<\/b> Logged against B on 25\/09/);assert.match(html,/Skip today/);
+ a.run(`setSoreness('sore')`);assert.equal(a.run('S.history[0].soreness'),'sore');
+ html=a.run('viewReadiness()');assert.match(html,/aria-pressed="true" onclick="setSoreness\('sore'\)"/);assert.ok(!html.includes('Skip today'));
+ a.run(`setSoreness('very')`);assert.equal(a.run('S.history[0].soreness'),'very');
+ a.run(`S.today.sid='C';logSet('c3',0,5)`);assert.equal(a.run('viewReadiness()'),'','hidden once sets are logged');a.run('clearDay()');
+ a.time('2026-09-27T08:00:00');a.run('refreshCalendarDay()');assert.equal(a.run('viewReadiness()'),'','already answered for that session');
+ train(a,'C',['c3'],'clean');a.time('2026-09-28T08:00:00');a.run('refreshCalendarDay()');
+ assert.match(a.run('viewReadiness()'),/Logged against C on 27\/09/);a.run(`setSoreness('skip')`);assert.equal(a.run('viewReadiness()'),'');
+ assert.equal(a.run('S.history[0].soreness'),undefined,'skip stores nothing');
+ a.time('2026-10-02T08:00:00');a.run('refreshCalendarDay()');assert.equal(a.run('viewReadiness()'),'','more than three days later');
+ a.time('2026-09-28T09:00:00');a.run(`refreshCalendarDay();S.progress.readySkip=''`);const before=a.json('S');a.fail(true);a.run(`setSoreness('fresh')`);assert.deepEqual(a.json('S'),before);a.fail(false);
+});
+test('too sore breaks step-up streaks and, after a new target, offers a step back',()=>{
+ const a=boot();
+ train(a,'B',['b3'],'clean','','2026-09-20');a.time('2026-09-21T08:00:00');a.run(`setSoreness('very')`);
+ assert.equal(steps(a,'B').b3.kind,'wait','too sore session does not count');assert.equal(steps(a,'B').b3.streak,0);
+ assert.notEqual(steps(a,'B').b3.kind,'back','no new target, so nothing to step back from');
+ train(a,'B',['b3'],'clean','','2026-09-22');a.time('2026-09-23T08:00:00');a.run(`setSoreness('sore')`);
+ assert.equal(steps(a,'B').b3.kind,'up','a bit sore still counts');
+ a.run(`S.today.sid='B';stepAction('b3','accept')`);
+ train(a,'B',['b3'],'clean','','2026-09-24');a.time('2026-09-25T08:00:00');a.run(`setSoreness('very')`);
+ const p=steps(a,'B').b3;assert.equal(p.kind,'back');assert.equal(p.reason,'sore');assert.deepEqual(p.to,[1,1,1,1,1]);
+ a.run(`S.today.sid='B'`);assert.match(a.run('viewTrain(phase())'),/Too sore after the first session at this step \(24\/09\)/);
+ a.run(`stepAction('b3','later')`);assert.match(a.run('viewTrain(phase())'),/Kept this target after the sore day/);
+});
+test('soreness shows in the check-in review, history, AI summary and the Reduced suggestion',()=>{
+ const a=boot();
+ train(a,'B',['b3'],'clean','','2026-09-20');a.time('2026-09-21T08:00:00');a.run(`setSoreness('very')`);
+ train(a,'C',['c3'],'clean','','2026-09-21');a.time('2026-09-22T08:00:00');a.run(`setSoreness('fresh')`);
+ assert.equal(a.json('reducedHint()'),null);
+ train(a,'D',['d11finger'],'clean','','2026-09-22');a.time('2026-09-23T08:00:00');a.run(`setSoreness('very')`);
+ assert.equal(a.json('reducedHint()').count,2);
+ assert.match(a.run('viewCheckins()'),/Next day: Fresh 1 · A bit sore 0 · Too sore 2/);
+ assert.match(a.run('coachSummary()'),/2026-09-20 B \[Clean; next day: too sore\]/);
+ a.run('openHist=2');assert.match(a.run('viewHistory()'),/Clean · next day too sore/);
 });
 console.log(`${passed} progression groups passed.`);
