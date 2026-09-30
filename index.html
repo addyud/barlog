@@ -90,7 +90,8 @@ button{font-family:inherit}
 .step .miniB{min-height:36px}
 .miniB.go{border-color:var(--sodium);color:var(--sodium)}
 .stepWait{font-family:var(--mono);font-size:11px;color:var(--galv);margin-top:6px;line-height:1.5}
-.feel .btn{padding:12px 6px}
+.acts.feel .btn{flex:1 1 0;min-width:0;padding:12px 4px;letter-spacing:.05em;white-space:normal;line-height:1.15}
+.step .acts{margin:12px 0 4px}
 .chips .chip[aria-pressed]{font-family:var(--body);font-size:13px}
 .chips{display:flex;flex-wrap:wrap;gap:6px;margin-top:11px}
 .chip{min-width:48px;height:42px;padding:0 10px;background:var(--steel);border:1px solid var(--steel-hi);border-radius:3px;color:var(--galv);font-family:var(--mono);font-size:14px}
@@ -717,7 +718,7 @@ function blank(){return{
   plan:JSON.parse(JSON.stringify(DEFAULT_PLAN)),
   today:{date:"",sid:"A",log:{},band:{},rice:false},
   history:[], prs:{fingertip:[],planche:[],pullup:[],hspu:[],lever:[],dip:[],pushup:[]},
-  progress:{log:[],pending:{},snooze:{},acks:{},reducedSnooze:""}
+  progress:{log:[],pending:{},snooze:{},acks:{},reducedSnooze:"",readyDate:"",readySkip:""}
 };}
 
 // Restore only the omitted rice preparation in already-adopted v4 plans, once.
@@ -948,41 +949,86 @@ function feltFor(r,id){
   return !r.feelEx||!r.feelEx.length||r.feelEx.includes(id)?r.feel:"clean";
 }
 const metTarget=x=>Array.isArray(x.target)&&x.target.length>0&&x.sets.length>=x.target.length&&x.target.every((t,i)=>x.sets[i]>=t);
+// Exercises that appear in two workouts share one ladder: every session of either counts,
+// and a step moves both together so the targets stay in line.
+const POOLS={a8:"lever",c8:"lever",b12er:"er",d14er:"er"};
+function ladderMembers(sid,e){
+  const r=ladderFor(e), pool=POOLS[e.id];
+  if(!pool)return [{sid,e}];
+  const out=[];
+  S.plan.forEach(p=>{ if(!p.testOnly)p.ex.forEach(x=>{ if(POOLS[x.id]===pool&&ladderFor(x)===r)out.push({sid:p.id,e:x}); }); });
+  return out.some(m=>m.e===e)?out:[{sid,e}];
+}
+const ladderKey=(e,members)=>members.length>1?"pool:"+POOLS[e.id]:e.id;
+// Newest first, across every member of the ladder.
+function ladderExposures(members,max){
+  const out=[];
+  for(const {record:r} of historyRows()){
+    for(const m of members){
+      if(r.sid!==m.sid||!r.detail)continue;
+      const x=r.detail.find(d=>d.id?d.id===m.e.id:d.n===m.e.n&&d.unit===m.e.unit);
+      if(x&&x.sets&&x.sets.length)out.push({date:String(r.date),x,r,m});
+    }
+    if(out.length>=max)break;
+  }
+  return out.slice(0,max);
+}
+const atTarget=s=>sameTargets(s.x.target,fullTargets(s.m.e));
 function exerciseProgress(sid,e){
   const r=ladderFor(e); if(!r)return null;
-  const t=fullTargets(e), seen=lastExposures(sid,e,r.clean);
+  const members=ladderMembers(sid,e), t=fullTargets(e), seen=ladderExposures(members,Math.max(r.clean,2));
   let streak=0;
-  for(const {r:rec,x} of seen){
-    if(rec.targetMode==="reduced"||feltFor(rec,e.id)!=="clean"||!sameTargets(x.target,t)||!metTarget(x))break;
+  for(const s of seen){
+    if(s.r.targetMode==="reduced"||feltFor(s.r,s.m.e.id)!=="clean"||s.r.soreness==="very"||!atTarget(s)||!metTarget(s.x))break;
     streak++;
   }
-  const latest=seen[0], base={rule:r,from:t,streak,need:r.clean};
-  const done=S.history.filter(h=>h.sid===sid).length;
-  const key=kind=>(latest?latest.date:"")+"|"+done+"|"+t.join(",")+"|"+kind;
-  if(latest&&(latest.r.feelEx||[]).includes(e.id)&&latest.r.feel==="ache"&&sameTargets(latest.x.target,t)){
-    const to=stepTargets(t,r,-1);
-    if(to)return {...base,kind:"back",to,date:latest.date,key:key("back")};
+  const latest=seen[0], shared=members.filter(m=>m.sid!==sid).map(m=>m.sid);
+  const base={rule:r,from:t,streak,need:r.clean,shared,pool:ladderKey(e,members)};
+  const done=S.history.filter(h=>members.some(m=>m.sid===h.sid)).length;
+  const key=kind=>(latest?latest.date:"")+"|"+done+"|"+members.map(m=>fullTargets(m.e).join(",")).join("/")+"|"+kind;
+  const moves=dir=>members.map(m=>({...m,from:fullTargets(m.e),to:stepTargets(fullTargets(m.e),r,dir)})).filter(m=>m.to);
+  const own=list=>(list.find(m=>m.e===e)||{}).to;
+  // Step back after ache on this exercise, or after a Too sore day following the first
+  // session at a new target.
+  if(latest&&atTarget(latest)){
+    const ache=latest.r.feel==="ache"&&(latest.r.feelEx||[]).includes(latest.m.e.id);
+    const prev=seen[1], sore=latest.r.soreness==="very"&&prev&&Array.isArray(prev.x.target)&&!atTarget(prev);
+    const back=moves(-1);
+    if((ache||sore)&&own(back))return {...base,kind:"back",reason:ache?"ache":"sore",moves:back,to:own(back),date:latest.date,key:key("back")};
   }
   if(streak<r.clean)return {...base,kind:"wait"};
-  if(Math.min.apply(null,t)>=r.top)
-    return {...base,kind:S.progress.acks[e.id]===t.join(",")?"top":"milestone",key:key("milestone")};
-  return {...base,kind:"up",to:stepTargets(t,r,1),key:key("up")};
+  const up=moves(1);
+  if(!own(up)&&!up.length){
+    const sig=members.map(m=>fullTargets(m.e).join(",")).join("/");
+    return {...base,kind:S.progress.acks[base.pool]===sig?"top":"milestone",sig,key:key("milestone")};
+  }
+  return {...base,kind:"up",moves:up,to:own(up)||t,key:key("up")};
 }
 // Suggestions for a whole workout: step backs and milestones always show. Only one ready
-// step up is offered, none while another change there is still untrained, and the one
-// offered is the exercise that has gone longest without a change, so none is starved.
+// step up is offered, none while another change in any workout it touches is still
+// untrained, and the one offered is the exercise that has gone longest without a change.
 function sessionProgress(s){
-  const out={}, pending=(S.progress.pending[s.id]||{}).id, ready=[];
+  const out={}, ready=[];
+  const blockerFor=(e,p)=>{
+    for(const m of p.moves||[]){
+      const pend=S.progress.pending[m.sid], ids=p.moves.map(x=>x.e.id);
+      if(pend&&!ids.includes(pend.id)){ const x=(S.plan.find(q=>q.id===m.sid)||{ex:[]}).ex.find(y=>y.id===pend.id); if(x)return x; }
+    }
+    return null;
+  };
   for(const e of s.ex){
     const p=exerciseProgress(s.id,e); if(!p)continue;
-    if(p.key&&S.progress.snooze[e.id]===p.key)p.snoozed=true;
-    if(p.kind==="up"&&!p.snoozed)ready.push(e);
+    if(p.key&&S.progress.snooze[p.pool]===p.key)p.snoozed=true;
+    if(p.kind==="up"&&!p.snoozed){
+      const b=blockerFor(e,p);
+      if(b){ p.kind="queued"; p.behind=b.n; p.changed=true; }
+      else ready.push(e);
+    }
     out[e.id]=p;
   }
   const lastChange=e=>(S.progress.log.find(x=>x.sid===s.id&&x.id===e.id&&x.to)||{}).date||"";
-  const blocker=pending&&s.ex.find(x=>x.id===pending);
-  const offer=blocker?null:ready.slice().sort((a,b)=>lastChange(a).localeCompare(lastChange(b)))[0];
-  for(const e of ready)if(e!==offer){ out[e.id].kind="queued"; out[e.id].behind=(blocker||offer).n; out[e.id].changed=!!blocker; }
+  const offer=ready.slice().sort((a,b)=>lastChange(a).localeCompare(lastChange(b)))[0];
+  for(const e of ready)if(e!==offer){ out[e.id].kind="queued"; out[e.id].behind=offer.n; out[e.id].changed=false; }
   return out;
 }
 function progressNote(sid,from,to,kind,e){
@@ -993,20 +1039,21 @@ function stepAction(exId,action){
   const s=sess(), e=s.ex.find(x=>x.id===exId), p=e&&sessionProgress(s)[exId];
   if(!p||p.snoozed&&action!=="later")return;
   const before=JSON.parse(JSON.stringify(S));
+  const change=(list,kind)=>list.forEach(m=>{
+    applyTargets(m.e,m.to); progressNote(m.sid,m.from,m.to,kind,m.e); S.progress.pending[m.sid]={id:m.e.id,date:dayKey()};
+  });
   let msg="";
-  if(action==="later"&&p.key){ S.progress.snooze[exId]=p.key; }
-  else if(action==="accept"&&(p.kind==="up"||p.kind==="back")&&p.to){
-    applyTargets(e,p.to); progressNote(s.id,p.from,p.to,p.kind,e); S.progress.pending[s.id]={id:e.id,date:dayKey()};
-    delete S.progress.snooze[exId];
-    msg=(p.kind==="up"?"Stepped up":"Stepped back")+" \u00b7 "+e.n+" "+fmtTargets(p.to,e,true);
+  if(action==="later"&&p.key){ S.progress.snooze[p.pool]=p.key; }
+  else if(action==="accept"&&(p.kind==="up"||p.kind==="back")&&p.moves&&p.moves.length){
+    change(p.moves,p.kind); delete S.progress.snooze[p.pool];
+    msg=(p.kind==="up"?"Stepped up":"Stepped back")+" · "+e.n+" "+fmtTargets(p.to,e,true)+(p.moves.length>1?" on "+p.moves.map(m=>m.sid).join(" and "):"");
   }else if(action==="ack"&&p.kind==="milestone"){
-    S.progress.acks[exId]=p.from.join(","); progressNote(s.id,p.from,null,"milestone",e);
-    msg="Milestone noted \u00b7 "+e.n;
+    S.progress.acks[p.pool]=p.sig; progressNote(s.id,p.from,null,"milestone",e);
+    msg="Milestone noted · "+e.n;
   }else if(action==="reset"&&p.kind==="milestone"&&p.rule.reset){
-    const to=Array(e.sets).fill(p.rule.reset);
-    applyTargets(e,to); progressNote(s.id,p.from,to,"reset",e); S.progress.pending[s.id]={id:e.id,date:dayKey()};
-    delete S.progress.acks[exId];
-    msg="Reset \u00b7 "+e.n+" "+fmtTargets(to,e,true);
+    change(ladderMembers(s.id,e).map(m=>({...m,from:fullTargets(m.e),to:Array(m.e.sets).fill(p.rule.reset)})),"reset");
+    delete S.progress.acks[p.pool];
+    msg="Reset · "+e.n+" "+fmtTargets(Array(e.sets).fill(p.rule.reset),e,true);
   }else return;
   if(!save()){ S=before; render(); return; }
   render();
@@ -1017,23 +1064,51 @@ function viewStep(s,e,p,logged){
   const btn=(action,label,go)=>'<button class="miniB'+(go?' go':'')+'" onclick="stepAction(\''+e.id+'\',\''+action+'\')">'+label+'</button>';
   const from=esc(fmtTargets(p.from,e,true)), to=p.to?esc(fmtTargets(p.to,e,true)):"";
   const sessions=n=>n+" clean session"+(n===1?"":"s");
+  const across=p.shared.length?" across "+[s.id].concat(p.shared).join(" and "):"";
+  const also=p.shared.length?" Also changes "+p.shared.join(" and ")+".":"";
   if(!logged&&!p.snoozed){
-    if(p.kind==="back")return '<div class="step back"><b>Ache flagged '+esc(shortD(p.date))+'.</b> Step back to '+to+'?'+
+    if(p.kind==="back")return '<div class="step back"><b>'+(p.reason==="sore"?"Too sore after the first session at this step ("+esc(shortD(p.date))+").":"Ache flagged "+esc(shortD(p.date))+".")+'</b> Step back to '+to+'?'+esc(also)+
       '<div class="rowBtns">'+btn("accept","Step back to "+to,true)+btn("later","Keep "+from)+'</div></div>';
-    if(p.kind==="up")return '<div class="step"><b>Ready to step up.</b> '+sessions(p.need)+' at '+from+'. Next: '+to+'.'+
+    if(p.kind==="up")return '<div class="step"><b>Ready to step up.</b> '+sessions(p.need)+esc(across)+' at '+from+'. Next: '+to+'.'+esc(also)+
       '<div class="rowBtns">'+btn("accept","Step up",true)+btn("later","Not yet")+'</div></div>';
     if(p.kind==="milestone")return '<div class="step"><b>Milestone.</b> '+esc(p.rule.next)+
-      '<div class="rowBtns">'+(p.rule.reset?btn("reset","Switched \u00b7 reset to "+esc(fmtTargets(Array(e.sets).fill(p.rule.reset),e,true)),true):"")+btn("ack","Got it",!p.rule.reset)+'</div></div>';
+      '<div class="rowBtns">'+(p.rule.reset?btn("reset","Switched · reset to "+esc(fmtTargets(Array(e.sets).fill(p.rule.reset),e,true)),true):"")+btn("ack","Got it",!p.rule.reset)+'</div></div>';
   }
   let line;
   if(p.kind==="top")line="Top of this ladder. Change the exercise in Edit when you move on.";
   else if(p.kind==="queued")line=p.changed?"Step up ready after the "+p.behind+" change has been trained.":
     "Also ready. One change at a time: "+p.behind+" is offered first.";
-  else if(p.snoozed&&p.kind==="back")line="Kept this target after the ache. Flag it again if it returns.";
+  else if(p.snoozed&&p.kind==="back")line=p.reason==="sore"?"Kept this target after the sore day. Too sore again will offer the step back again.":"Kept this target after the ache. Flag it again if it returns.";
   else if(p.snoozed)line="Step up offered and skipped. It returns after your next clean session here.";
-  else if(p.kind==="wait")line="Step up after "+sessions(p.need)+" at this target \u00b7 "+p.streak+" so far.";
+  else if(p.kind==="wait")line="Step up after "+sessions(p.need)+" at this target"+across+" · "+p.streak+" so far.";
   else return "";
   return '<div class="stepWait">'+esc(line)+'</div>';
+}
+// Next-day soreness. Asked once a day on Train before any set is logged, and stored on the
+// latest earlier session within three days. Too sore breaks that session's step-up streaks
+// and, after the first session at a new target, offers a step back.
+const SORENESS={fresh:"Fresh",sore:"A bit sore",very:"Too sore"};
+function readinessTarget(){
+  const today=dayKey(), row=historyRows().find(({record:r})=>String(r.date)<today);
+  return row&&String(row.record.date)>=datePlus(today,-3)?row.record:null;
+}
+function setSoreness(v){
+  if(!SORENESS[v]&&v!=="skip")return;
+  const r=readinessTarget(); if(!r)return;
+  const before=JSON.parse(JSON.stringify(S));
+  if(v==="skip")S.progress.readySkip=dayKey();
+  else{ r.soreness=v; S.progress.readyDate=dayKey(); }
+  if(!save()){ S=before; render(); return; }
+  render();
+}
+function viewReadiness(){
+  if(hasDraft()||S.progress.readySkip===dayKey())return "";
+  const r=readinessTarget(); if(!r)return "";
+  const answered=S.progress.readyDate===dayKey();
+  if(r.soreness&&!answered)return "";
+  return '<div class="step"><b>How do you feel today?</b> Logged against '+esc(r.sid)+' on '+esc(shortD(String(r.date)))+'. Too sore holds step ups from that session.'+
+    '<div class="acts feel">'+Object.keys(SORENESS).map(k=>'<button class="btn '+(r.soreness===k?'':'ghost')+'" aria-pressed="'+(r.soreness===k)+'" onclick="setSoreness(\''+k+'\')">'+SORENESS[k]+'</button>').join('')+'</div>'+
+    (answered?'':'<div class="rowBtns"><button class="miniB" onclick="setSoreness(\'skip\')">Skip today</button></div>')+'</div>';
 }
 // Finish check-in. Grindy or Ache can name the exercises involved; none named means all.
 function setFeel(v){
@@ -1061,8 +1136,9 @@ function viewFeel(s){
 }
 
 /* ── check-in review ──
-   Grindy and Ache flags from the last six weeks, per exercise, plus a suggestion (never an
-   automatic switch) to use Reduced targets after ache in two sessions within a week. */
+   Grindy and Ache flags and next-day soreness from the last six weeks, plus a suggestion
+   (never an automatic switch) to use Reduced targets after ache or a Too sore day
+   following two sessions within a week. */
 function checkinWindow(weeks){
   const since=datePlus(dayKey(),-7*weeks);
   return historyRows().map(x=>x.record).filter(r=>String(r.date)>=since);
@@ -1077,32 +1153,34 @@ function checkinSummary(weeks=6){
       f[r.feel]++; if(String(r.date)>f.last)f.last=String(r.date);
     }
   }
-  const count=k=>rated.filter(r=>r.feel===k).length;
-  return {total:rows.length,rated:rated.length,clean:count("clean"),grindy:count("grindy"),ache:count("ache"),flags};
+  const count=k=>rated.filter(r=>r.feel===k).length, sore=k=>rows.filter(r=>r.soreness===k).length;
+  return {total:rows.length,rated:rated.length,clean:count("clean"),grindy:count("grindy"),ache:count("ache"),flags,
+    soreness:{fresh:sore("fresh"),sore:sore("sore"),very:sore("very")}};
 }
 function reducedHint(){
   if(S.targetMode!=="normal")return null;
-  const aches=checkinWindow(1).filter(r=>r.feel==="ache");
+  const aches=checkinWindow(1).filter(r=>r.feel==="ache"||r.soreness==="very");
   if(aches.length<2)return null;
   const key=aches.map(r=>r.date).sort().pop();
   return S.progress.reducedSnooze===key?null:{count:aches.length,key};
 }
 function viewReducedHint(){
   const h=reducedHint(); if(!h)return "";
-  return '<div class="step back"><b>Ache in '+h.count+' sessions this week.</b> Switch to Reduced targets for a few sessions? Reduced sessions don’t count toward step ups.'+
+  return '<div class="step back"><b>Ache or too sore after '+h.count+' sessions this week.</b> Switch to Reduced targets for a few sessions? Reduced sessions don’t count toward step ups.'+
     '<div class="rowBtns"><button class="miniB go" onclick="setTargetMode(\'reduced\')">Switch to Reduced</button>'+
     '<button class="miniB" onclick="snoozeReduced()">Not now</button></div></div>';
 }
 function snoozeReduced(){ const h=reducedHint(); if(!h)return; S.progress.reducedSnooze=h.key; commit(); }
 function viewCheckins(){
-  const c=checkinSummary(); if(!c.rated)return "";
+  const c=checkinSummary(), n=c.soreness, sored=n.fresh+n.sore+n.very; if(!c.rated&&!sored)return "";
   let h='<div class="sec">Check-ins · last 6 weeks</div><div class="note">Rated '+c.rated+' of '+c.total+' sessions · Clean '+c.clean+' · Grindy '+c.grindy+' · Ache '+c.ache+'</div>';
+  if(sored)h+='<div class="note">Next day: Fresh '+n.fresh+' · A bit sore '+n.sore+' · Too sore '+n.very+'</div>';
   const names=Object.keys(c.flags).sort((a,b)=>(c.flags[b].ache-c.flags[a].ache)||(c.flags[b].grindy-c.flags[a].grindy));
   names.forEach(n=>{
     const f=c.flags[n], bits=[]; if(f.ache)bits.push("Ache "+f.ache); if(f.grindy)bits.push("Grindy "+f.grindy);
     h+='<div class="hist"><span class="histX"><span style="color:var(--chalk)">'+esc(n)+'</span> · '+esc(bits.join(" · "))+'</span><span class="histD" style="min-width:0">latest '+esc(shortD(f.last))+'</span></div>';
   });
-  if(!names.length)h+='<div class="note">No grindy or achy exercises flagged.</div>';
+  if(!names.length&&c.rated)h+='<div class="note">No grindy or achy exercises flagged.</div>';
   return h;
 }
 
@@ -1123,10 +1201,11 @@ function coachSummary(weeks=6){
   const rows=historyRows().map(x=>x.record).filter(r=>String(r.date)>=since);
   const switches=(S.planArchives||[]).map(x=>String(x.savedAt||"").slice(0,10)).filter(d=>d>=since).sort();
   if(switches.length)L.push("","Routine changed on "+switches.join(", ")+". Sessions before that follow the earlier plan, so exercise names and doses differ.");
-  L.push("","SESSIONS SINCE "+since+" (newest first; check-in in brackets)");
+  L.push("","SESSIONS SINCE "+since+" (newest first; check-in and next-day soreness in brackets)");
   if(!rows.length)L.push("None.");
   rows.forEach(r=>{
-    const feel=FEELS[r.feel]?" ["+FEELS[r.feel]+(r.feelEx&&r.feelEx.length?": "+r.feelEx.map(id=>((r.detail||[]).find(x=>x.id===id)||{}).n||id).join(", "):"")+"]":" [not rated]";
+    const next=SORENESS[r.soreness]?"; next day: "+SORENESS[r.soreness].toLowerCase():"";
+    const feel=" ["+(FEELS[r.feel]?FEELS[r.feel]+(r.feelEx&&r.feelEx.length?": "+r.feelEx.map(id=>((r.detail||[]).find(x=>x.id===id)||{}).n||id).join(", "):""):"not rated")+next+"]";
     L.push(r.date+" "+r.sid+(r.targetMode==="reduced"?" reduced":"")+(r.manual?" (logged later)":"")+feel);
     (r.detail||[]).filter(x=>x.unit!=="min").forEach(x=>{
       const missed=Array.isArray(x.target)&&!metTarget(x);
@@ -1761,7 +1840,7 @@ function viewTrain(ph){
     if(hasDraft())h+='<div class="note">Finish or clear this workout before changing. Your logged sets stay with this workout.</div>';
   }
   h+='</details>';
-  h+=viewCalendar()+targetControl()+viewReducedHint();
+  h+=viewReadiness()+viewCalendar()+targetControl()+viewReducedHint();
 
   /* Daily rice tracking is available with every routine. */
   h+='<div class="daily'+(S.today.rice?" on":"")+'" onclick="toggleRice()"><span class="box">'+(S.today.rice?"✓":"")+'</span>'+
@@ -1832,7 +1911,7 @@ function viewHistory(){
     if(openHist===i){
       h+='<div style="padding:6px 0 12px 68px;border-bottom:1px solid var(--steel)">';
       if(r.weekSource!=="calendar"&&r.week!=null)h+='<div class="note">Original logged label: week '+esc(r.week)+'. Calendar label above comes from the workout date.</div>';
-      if(r.targetMode)h+='<div class="note">'+esc(r.targetMode)+' targets'+(FEELS[r.feel]?' · '+esc(FEELS[r.feel])+(r.feelEx&&r.feelEx.length?': '+esc(r.feelEx.map(id=>(r.detail||[]).find(x=>x.id===id)?.n||id).join(', ')):''):'')+'</div>';
+      if(r.targetMode)h+='<div class="note">'+esc(r.targetMode)+' targets'+(FEELS[r.feel]?' · '+esc(FEELS[r.feel])+(r.feelEx&&r.feelEx.length?': '+esc(r.feelEx.map(id=>(r.detail||[]).find(x=>x.id===id)?.n||id).join(', ')):''):'')+(SORENESS[r.soreness]?' · next day '+esc(SORENESS[r.soreness].toLowerCase()):'')+'</div>';
       if(r.note)h+='<div style="font-size:12px;color:var(--galv);padding:0 0 8px;line-height:1.45">'+esc(r.note)+'</div>';
       if(r.rice)h+='<div style="font-size:11px;color:var(--sodium);padding:0 0 8px">Rice bag ✓</div>';
       if(hasD)r.detail.forEach(x=>{

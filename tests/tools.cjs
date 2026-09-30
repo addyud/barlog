@@ -73,7 +73,7 @@ test('check-in review groups flags by exercise and suggests Reduced after two ac
  const c=a.json('checkinSummary()');assert.deepEqual([c.rated,c.clean,c.grindy,c.ache],[4,1,1,2]);
  assert.deepEqual(c.flags.Dips,{grindy:0,ache:1,last:'2026-09-20'});assert.deepEqual(c.flags['Whole session'],{grindy:1,ache:0,last:'2026-09-21'});
  assert.match(a.run('viewCheckins()'),/Rated 4 of 4 sessions · Clean 1 · Grindy 1 · Ache 2/);
- assert.equal(a.json('reducedHint()').count,2);assert.match(a.run('viewTrain(phase())'),/Ache in 2 sessions this week/);
+ assert.equal(a.json('reducedHint()').count,2);assert.match(a.run('viewTrain(phase())'),/Ache or too sore after 2 sessions this week/);
  a.run('snoozeReduced()');assert.equal(a.json('reducedHint()'),null,'Not now holds until a new ache');
  train(a,'B',['b3'],'ache',['b3'],'2026-09-26');assert.equal(a.json('reducedHint()').count,3);
  a.run(`setTargetMode('reduced')`);assert.equal(a.json('reducedHint()'),null,'already reduced');
