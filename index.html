@@ -77,11 +77,21 @@ button{font-family:inherit}
 .ex{padding:17px 0 15px;border-bottom:1px solid var(--steel)}
 .exTop{display:flex;align-items:baseline;justify-content:space-between;gap:10px}
 .exN{font-family:var(--disp);font-weight:600;font-size:19px;line-height:1.15}
-.exT{font-family:var(--mono);font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--galv);white-space:nowrap}
+.exT{font-family:var(--mono);font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--galv);text-align:right}
 .exNote{font-size:12px;color:var(--galv);margin-top:4px;line-height:1.45}
 .exLast{font-family:var(--mono);font-size:12px;color:var(--chalk);margin-top:6px;line-height:1.55}
 .exLast span{color:var(--galv)}
 .exLoad{font-size:12px;color:var(--sodium);margin-top:4px;line-height:1.45}
+.step{margin-top:9px;padding:10px 12px;background:var(--steel);border-left:2px solid var(--sodium);border-radius:2px;font-size:12.5px;line-height:1.5;color:var(--chalk)}
+.step.back{border-left-color:var(--rust)}
+.step b{color:var(--sodium);font-weight:600}
+.step.back b{color:var(--rust)}
+.step .rowBtns{flex-wrap:wrap}
+.step .miniB{min-height:36px}
+.miniB.go{border-color:var(--sodium);color:var(--sodium)}
+.stepWait{font-family:var(--mono);font-size:11px;color:var(--galv);margin-top:6px;line-height:1.5}
+.feel .btn{padding:12px 6px}
+.chips .chip[aria-pressed]{font-family:var(--body);font-size:13px}
 .chips{display:flex;flex-wrap:wrap;gap:6px;margin-top:11px}
 .chip{min-width:48px;height:42px;padding:0 10px;background:var(--steel);border:1px solid var(--steel-hi);border-radius:3px;color:var(--galv);font-family:var(--mono);font-size:14px}
 .chip.on{background:var(--sodium);border-color:var(--sodium);color:var(--night);font-weight:700}
@@ -640,7 +650,7 @@ function weekText(date){ const w=calendarWeek(date); return w==null?"Before star
 function hasDraft(){ return Object.values(S.today.log||{}).some(a=>a.some(v=>v!=null)); }
 function refreshDraftDate(){
   if(!hasDraft()&&S.today.date!==dayKey()){
-    S.today.date=dayKey();S.today.rice=false;
+    S.today.date=dayKey();S.today.rice=false;delete S.today.feel;delete S.today.feelEx;
   }
 }
 function setTargetMode(value){
@@ -662,7 +672,7 @@ function viewCalendar(){
 /* ── state ── */
 let S=null, tab="train", timer=null, tick=null, ac=null, editSess="A", openHist=-1, bfSid="A", bfLog={};
 /* Keep backfill fields across chip taps, date changes and re-renders. */
-let bfDate=null, bfReps="", bfSecs="", bfNote="", bfRice=false, bfAdv=null, bfTargetMode="normal";
+let bfDate=null, bfReps="", bfSecs="", bfNote="", bfRice=false, bfAdv=null, bfTargetMode="normal", bfFeel="";
 let openPr=null, pendingSession=null;
 /* manual-max form fields, kept across re-renders like the backfill form */
 let mxLift="pullup", mxVal="", mxDate=null;
@@ -693,8 +703,8 @@ function setBfSess(id){ bfSid=id; bfLog={}; bfAdv=null; render(); }
 const bfDay=()=>bfDate||dayKey();
 const bfAdvOn=()=>bfAdv==null?bfWillAdv():bfAdv;
 function bfSet(k,v){ ({date:()=>{bfDate=v;render();},reps:()=>bfReps=v,secs:()=>bfSecs=v,
-  note:()=>bfNote=v,rice:()=>bfRice=v,adv:()=>bfAdv=v})[k](); }
-function bfResetForm(){ bfDate=null; bfReps=""; bfSecs=""; bfNote=""; bfRice=false; bfAdv=null; bfTargetMode="normal"; }
+  note:()=>bfNote=v,rice:()=>bfRice=v,adv:()=>bfAdv=v,feel:()=>bfFeel=FEELS[v]?v:""})[k](); }
+function bfResetForm(){ bfDate=null; bfReps=""; bfSecs=""; bfNote=""; bfRice=false; bfAdv=null; bfTargetMode="normal"; bfFeel=""; }
 function setBfTargets(v){ if(["normal","reduced"].includes(v))bfTargetMode=v;render(); }
 function bfClearLog(){ bfLog={}; render(); }
 function bfPlan(){ return S.plan.find(p=>p.id===bfSid); }
@@ -706,7 +716,8 @@ function blank(){return{
   calendar:{startDate:dayKey(),source:"new"}, targetMode:"normal",
   plan:JSON.parse(JSON.stringify(DEFAULT_PLAN)),
   today:{date:"",sid:"A",log:{},band:{},rice:false},
-  history:[], prs:{fingertip:[],planche:[],pullup:[],hspu:[],lever:[],dip:[],pushup:[]}
+  history:[], prs:{fingertip:[],planche:[],pullup:[],hspu:[],lever:[],dip:[],pushup:[]},
+  progress:{log:[],pending:{},snooze:{},acks:{}}
 };}
 
 // Restore only the omitted rice preparation in already-adopted v4 plans, once.
@@ -798,6 +809,7 @@ function migrate(state,fromVersion,saved){
   state.planVersion=fromVersion;
   state.prs=Object.assign(blank().prs,state.prs||{});
   state.today=Object.assign(blank().today,state.today||{});
+  state.progress=Object.assign(blank().progress,state.progress||{});
   state.planArchives=state.planArchives||[];
   applyPatches(state,fromVersion,saved);
   state.reducedWeek4=state.reducedWeek4!==false;
@@ -864,6 +876,182 @@ function advanceAfter(sid){
   S.rot+=step;
 }
 const rotAt=n=>{ const c=cycle(); return c.length?c[((n%c.length)+c.length)%c.length].id:"\u2014"; };
+
+/* \u2500\u2500 progression \u2500\u2500
+   Ladders turn each exercise's written progression into steps. The app only suggests;
+   targets change when you accept. A session counts toward a step up only when it was
+   marked Clean for that exercise, on normal targets, at the current target, with every
+   set met. One step up per workout until that workout has been trained again. */
+const ER_LADDER={unit:"reps",mode:"one",step:1,top:20,clean:1,reset:15,next:"2 \u00d7 20 reached. Switch to a heavier band and rebuild from 15."};
+const LEVER_LADDER={unit:"s",mode:"one",step:1,top:8,clean:2,next:"Holds reached 8s. Keep building toward 10s, or move to a slightly longer lever with shorter holds."};
+const LADDERS={
+  a8:LEVER_LADDER, c8:LEVER_LADDER,
+  b3:{unit:"reps",mode:"one",step:1,top:2,clean:1,next:"5 \u00d7 2 reached. Pick the next step yourself: more reps, deficit depth or a harder variation."},
+  b10dips:{unit:"reps",mode:"one",step:1,top:8,clean:2,next:"3 \u00d7 8 reached. Reassess whether dips stay before adding more."},
+  b11push:{unit:"reps",mode:"one",step:1,top:15,clean:1,next:"3 \u00d7 15 reached. Move to a harder push up variation."},
+  b12er:ER_LADDER, d14er:ER_LADDER,
+  c3:{unit:"reps",mode:"one",step:1,top:6,clean:2,next:"4 \u00d7 6 reached. Reassess difficulty before adding sets."},
+  c6:{unit:"reps",mode:"one",step:1,top:8,clean:2,next:"3 \u00d7 8 reached. Time for a harder variation."},
+  d11finger:{unit:"s",mode:"all",step:1,top:10,clean:1,next:"3 \u00d7 10s reached. Build the weaker side toward about 15s, then add brief free-hand lifts of 1\u20132s."},
+  d12tuck:{unit:"s",mode:"one",step:1,top:8,clean:2,reset:5,next:"4 \u00d7 8s reached. Next: flatten the back (hips to shoulder height) at 5s holds, then advanced tuck at 3s."},
+  d9lean:{unit:"s",mode:"one",step:1,top:8,clean:2,reset:5,next:"8s at this depth. Go slightly deeper and drop back to 5s."},
+  d13support:{unit:"s",mode:"all",step:3,top:30,clean:2,reset:15,next:"3 \u00d7 30s reached. Turn the rings out at shorter holds and rebuild to 30s."}
+};
+const FEELS={clean:"Clean",grindy:"Grindy",ache:"Ache"};
+function ladderFor(e){
+  const r=e&&LADDERS[e.id];
+  return r&&S.planVersion===PLAN_VERSION&&e.unit===r.unit&&!e.amrap&&!e.budget&&e.sets>0&&e.reps>0?r:null;
+}
+const validPerSet=e=>Array.isArray(e.perSet)&&e.perSet.length===e.sets&&e.perSet.every(v=>Number.isInteger(v)&&v>=0);
+function fullTargets(e){ return validPerSet(e)?e.perSet.slice():Array(Math.max(0,e.sets)).fill(e.reps); }
+// Per-set chip targets for the chosen mode. Reduced mode keeps the first (hardest) sets.
+function setTargets(e,w,mode=S.targetMode){
+  const t=fullTargets(e);
+  return mode==="reduced"&&e.budget?t.map(()=>repsFor(e,w,mode)):t.slice(0,setsFor(e,w,mode));
+}
+function applyTargets(e,t){
+  if(t.every(v=>v===t[0])){ e.reps=t[0]; delete e.perSet; }
+  else{ e.perSet=t.slice(); e.reps=Math.max.apply(null,t); }
+}
+const sameTargets=(a,b)=>Array.isArray(a)&&Array.isArray(b)&&a.length===b.length&&a.every((v,i)=>v===b[i]);
+function fmtTargets(t,e,bare){
+  const groups=[];
+  t.forEach(v=>{ const g=groups[groups.length-1]; if(g&&g[1]===v)g[0]++; else groups.push([1,v]); });
+  const cap=e.cap&&!bare;
+  if(groups.length===1)return groups[0][0]+" \u00d7 "+(cap?"up to ":"")+groups[0][1]+unitOf(e);
+  return (cap?"up to ":"")+groups.map(([n,v])=>n+"\u00d7"+v+unitOf(e)).join(" + ");
+}
+// "one" adds to the first set holding the lowest target and removes from the last set
+// holding the highest, so stepping up and back retrace the same rungs.
+function stepTargets(t,r,dir){
+  if(!t.length)return null;
+  const lo=Math.min.apply(null,t), hi=Math.max.apply(null,t), floor=r.floor||1;
+  if(dir>0&&lo>=r.top)return null;
+  if(dir<0&&hi-r.step<floor)return null;
+  if(r.mode==="all")return t.map(v=>dir>0?Math.min(r.top,v+r.step):Math.max(floor,v-r.step));
+  const out=t.slice();
+  if(dir>0){ const i=out.indexOf(lo); out[i]=Math.min(r.top,lo+r.step); }
+  else{ const i=out.lastIndexOf(hi); out[i]=hi-r.step; }
+  return out;
+}
+// How a finished session felt for one exercise. Unrated sessions return null.
+function feltFor(r,id){
+  if(!FEELS[r.feel])return null;
+  if(r.feel==="clean")return "clean";
+  return !r.feelEx||!r.feelEx.length||r.feelEx.includes(id)?r.feel:"clean";
+}
+const metTarget=x=>Array.isArray(x.target)&&x.target.length>0&&x.sets.length>=x.target.length&&x.target.every((t,i)=>x.sets[i]>=t);
+function exerciseProgress(sid,e){
+  const r=ladderFor(e); if(!r)return null;
+  const t=fullTargets(e), seen=lastExposures(sid,e,r.clean);
+  let streak=0;
+  for(const {r:rec,x} of seen){
+    if(rec.targetMode==="reduced"||feltFor(rec,e.id)!=="clean"||!sameTargets(x.target,t)||!metTarget(x))break;
+    streak++;
+  }
+  const latest=seen[0], base={rule:r,from:t,streak,need:r.clean};
+  const done=S.history.filter(h=>h.sid===sid).length;
+  const key=kind=>(latest?latest.date:"")+"|"+done+"|"+t.join(",")+"|"+kind;
+  if(latest&&(latest.r.feelEx||[]).includes(e.id)&&latest.r.feel==="ache"&&sameTargets(latest.x.target,t)){
+    const to=stepTargets(t,r,-1);
+    if(to)return {...base,kind:"back",to,date:latest.date,key:key("back")};
+  }
+  if(streak<r.clean)return {...base,kind:"wait"};
+  if(Math.min.apply(null,t)>=r.top)
+    return {...base,kind:S.progress.acks[e.id]===t.join(",")?"top":"milestone",key:key("milestone")};
+  return {...base,kind:"up",to:stepTargets(t,r,1),key:key("up")};
+}
+// Suggestions for a whole workout: step backs and milestones always show. Only one ready
+// step up is offered, none while another change there is still untrained, and the one
+// offered is the exercise that has gone longest without a change, so none is starved.
+function sessionProgress(s){
+  const out={}, pending=(S.progress.pending[s.id]||{}).id, ready=[];
+  for(const e of s.ex){
+    const p=exerciseProgress(s.id,e); if(!p)continue;
+    if(p.key&&S.progress.snooze[e.id]===p.key)p.snoozed=true;
+    if(p.kind==="up"&&!p.snoozed)ready.push(e);
+    out[e.id]=p;
+  }
+  const lastChange=e=>(S.progress.log.find(x=>x.sid===s.id&&x.id===e.id&&x.to)||{}).date||"";
+  const blocker=pending&&s.ex.find(x=>x.id===pending);
+  const offer=blocker?null:ready.slice().sort((a,b)=>lastChange(a).localeCompare(lastChange(b)))[0];
+  for(const e of ready)if(e!==offer){ out[e.id].kind="queued"; out[e.id].behind=(blocker||offer).n; out[e.id].changed=!!blocker; }
+  return out;
+}
+function progressNote(sid,from,to,kind,e){
+  S.progress.log.unshift({date:dayKey(),sid,id:e.id,n:e.n,kind,from:fmtTargets(from,e,true),...(to?{to:fmtTargets(to,e,true)}:{})});
+  S.progress.log=S.progress.log.slice(0,100);
+}
+function stepAction(exId,action){
+  const s=sess(), e=s.ex.find(x=>x.id===exId), p=e&&sessionProgress(s)[exId];
+  if(!p||p.snoozed&&action!=="later")return;
+  const before=JSON.parse(JSON.stringify(S));
+  let msg="";
+  if(action==="later"&&p.key){ S.progress.snooze[exId]=p.key; }
+  else if(action==="accept"&&(p.kind==="up"||p.kind==="back")&&p.to){
+    applyTargets(e,p.to); progressNote(s.id,p.from,p.to,p.kind,e); S.progress.pending[s.id]={id:e.id,date:dayKey()};
+    delete S.progress.snooze[exId];
+    msg=(p.kind==="up"?"Stepped up":"Stepped back")+" \u00b7 "+e.n+" "+fmtTargets(p.to,e,true);
+  }else if(action==="ack"&&p.kind==="milestone"){
+    S.progress.acks[exId]=p.from.join(","); progressNote(s.id,p.from,null,"milestone",e);
+    msg="Milestone noted \u00b7 "+e.n;
+  }else if(action==="reset"&&p.kind==="milestone"&&p.rule.reset){
+    const to=Array(e.sets).fill(p.rule.reset);
+    applyTargets(e,to); progressNote(s.id,p.from,to,"reset",e); S.progress.pending[s.id]={id:e.id,date:dayKey()};
+    delete S.progress.acks[exId];
+    msg="Reset \u00b7 "+e.n+" "+fmtTargets(to,e,true);
+  }else return;
+  if(!save()){ S=before; render(); return; }
+  render();
+  if(msg)toast(msg);
+}
+function viewStep(s,e,p,logged){
+  if(!p)return "";
+  const btn=(action,label,go)=>'<button class="miniB'+(go?' go':'')+'" onclick="stepAction(\''+e.id+'\',\''+action+'\')">'+label+'</button>';
+  const from=esc(fmtTargets(p.from,e,true)), to=p.to?esc(fmtTargets(p.to,e,true)):"";
+  const sessions=n=>n+" clean session"+(n===1?"":"s");
+  if(!logged&&!p.snoozed){
+    if(p.kind==="back")return '<div class="step back"><b>Ache flagged '+esc(shortD(p.date))+'.</b> Step back to '+to+'?'+
+      '<div class="rowBtns">'+btn("accept","Step back to "+to,true)+btn("later","Keep "+from)+'</div></div>';
+    if(p.kind==="up")return '<div class="step"><b>Ready to step up.</b> '+sessions(p.need)+' at '+from+'. Next: '+to+'.'+
+      '<div class="rowBtns">'+btn("accept","Step up",true)+btn("later","Not yet")+'</div></div>';
+    if(p.kind==="milestone")return '<div class="step"><b>Milestone.</b> '+esc(p.rule.next)+
+      '<div class="rowBtns">'+(p.rule.reset?btn("reset","Switched \u00b7 reset to "+esc(fmtTargets(Array(e.sets).fill(p.rule.reset),e,true)),true):"")+btn("ack","Got it",!p.rule.reset)+'</div></div>';
+  }
+  let line;
+  if(p.kind==="top")line="Top of this ladder. Change the exercise in Edit when you move on.";
+  else if(p.kind==="queued")line=p.changed?"Step up ready after the "+p.behind+" change has been trained.":
+    "Also ready. One change at a time: "+p.behind+" is offered first.";
+  else if(p.snoozed&&p.kind==="back")line="Kept this target after the ache. Flag it again if it returns.";
+  else if(p.snoozed)line="Step up offered and skipped. It returns after your next clean session here.";
+  else if(p.kind==="wait")line="Step up after "+sessions(p.need)+" at this target \u00b7 "+p.streak+" so far.";
+  else return "";
+  return '<div class="stepWait">'+esc(line)+'</div>';
+}
+// Finish check-in. Grindy or Ache can name the exercises involved; none named means all.
+function setFeel(v){
+  if(!FEELS[v])return;
+  S.today.feel=S.today.feel===v?"":v;
+  if(S.today.feel!=="grindy"&&S.today.feel!=="ache")delete S.today.feelEx;
+  commit();
+}
+function toggleFeelEx(id){
+  const a=S.today.feelEx||[];
+  S.today.feelEx=a.includes(id)?a.filter(x=>x!==id):a.concat([id]);
+  commit();
+}
+function viewFeel(s){
+  const feel=S.today.feel||"";
+  let h='<div class="lbl">How did it go?</div><div class="acts feel">'+
+    Object.keys(FEELS).map(k=>'<button class="btn '+(feel===k?'':'ghost')+'" aria-pressed="'+(feel===k)+'" onclick="setFeel(\''+k+'\')">'+FEELS[k]+'</button>').join('')+'</div>';
+  if(feel==="grindy"||feel==="ache"){
+    const picked=S.today.feelEx||[];
+    const done=s.ex.filter(e=>e.tier!=="prep"&&(S.today.log[e.id]||[]).some(v=>v!=null));
+    h+='<div class="note">Which exercise? Leave all off if it was the whole session.</div><div class="chips">'+
+      done.map(e=>'<button class="chip'+(picked.includes(e.id)?' on':'')+'" aria-pressed="'+picked.includes(e.id)+'" onclick="toggleFeelEx(\''+e.id+'\')">'+esc(e.n)+'</button>').join('')+'</div>';
+  }
+  return h+'<div class="note">Only exercises marked Clean, with every set at target, count toward a step up. Ache on a named exercise offers a step back next time.</div>';
+}
 
 /* ── alert ── */
 function ding(){
@@ -975,7 +1163,7 @@ function confirmSessionChange(){
   document.getElementById('workoutTitle')?.focus?.();
 }
 function toggleRice(){ S.today.rice=!S.today.rice; commit(); }
-function clearDay(){ stopTimer(); S.today.log={}; S.today.band={}; commit(); }
+function clearDay(){ stopTimer(); S.today.log={}; S.today.band={}; delete S.today.feel; delete S.today.feelEx; commit(); }
 function setTodayBand(id,v){ if(!S.today.band)S.today.band={}; S.today.band[id]=v; save(); }
 function cycleAlert(){ const o=["vibrate","sound","off"]; S.alert=o[(o.indexOf(S.alert)+1)%3]; commit(); }
 
@@ -992,18 +1180,24 @@ function finish(){
     const sum=vals.reduce((a,b)=>a+b,0);
     if(e.unit==="reps")reps+=sum; else if(e.unit==="s")secs+=sum;
     const item={id:e.id,n:e.n,unit:e.unit,sets:vals};
+    if(!e.amrap)item.target=fullTargets(e);
     const band=S.today.band&&S.today.band[e.id]&&S.today.band[e.id].trim();
     if(band)item.band=band;
     detail.push(item);
     if(e.pr)S.prs[e.pr]=(S.prs[e.pr]||[]).concat([{date:S.today.date||dayKey(),value:Math.max.apply(null,vals)}]);
   });
   openHist=-1;
-  S.history.unshift({date:S.today.date||dayKey(),sid:s.id,week:calendarWeek(S.today.date||dayKey()),weekSource:"calendar",targetMode:S.targetMode,reps:reps,secs:secs,detail:detail,...(S.today.rice?{rice:true}:{})});
+  const feel=FEELS[S.today.feel]?{feel:S.today.feel,...(S.today.feelEx&&S.today.feelEx.length?{feelEx:S.today.feelEx.slice()}:{})}:{};
+  S.history.unshift({date:S.today.date||dayKey(),sid:s.id,week:calendarWeek(S.today.date||dayKey()),weekSource:"calendar",targetMode:S.targetMode,reps:reps,secs:secs,detail:detail,...feel,...(S.today.rice?{rice:true}:{})});
   // Keep older entries; backups include the complete history.
   if(!s.testOnly)advanceAfter(s.id);
+  delete S.progress.pending[s.id];
   S.today={date:dayKey(),sid:nextId(),log:{},band:{},rice:S.today.rice};
   if(!save()){S=before;render();return;}
   pendingSession=null;stopTimer(); tab="progress"; render();
+  const ready=Object.entries(sessionProgress(s)).filter(([,p])=>["up","back","milestone"].includes(p.kind)&&!p.snoozed)
+    .map(([id])=>s.ex.find(e=>e.id===id).n);
+  if(ready.length)toast("Next "+s.id+": suggestion ready for "+ready.join(", "));
 }
 
 /* ── edit ── */
@@ -1012,6 +1206,7 @@ function editField(sid,exId,field,val){
   const e=s.ex.find(x=>x.id===exId); if(!e)return;
   if(["sets","reps","rest"].indexOf(field)>=0){ const n=parseInt(val,10); e[field]=isNaN(n)?0:Math.max(0,n); }
   else e[field]=val;
+  if(field==="sets"||field==="reps")delete e.perSet; // a manual dose replaces step-up targets
   save();
 }
 function delEx(sid,exId){
@@ -1047,7 +1242,7 @@ function buildBfDetail(sid){
   plan.ex.forEach(e=>{
     const vals=(bfLog[e.id]||[]).filter(v=>typeof v==="number");
     if(!vals.length)return;
-    detail.push({id:e.id,n:e.n,unit:e.unit,sets:vals});
+    detail.push({id:e.id,n:e.n,unit:e.unit,sets:vals,...(e.amrap?{}:{target:fullTargets(e)})});
   });
   return detail;
 }
@@ -1094,7 +1289,10 @@ function addPast(){
   if(detail.length)entry.detail=detail;
   if(note)entry.note=note;
   if(rice)entry.rice=true;
+  if(detail.length&&bfFeel)entry.feel=bfFeel;
   S.history.unshift(entry);
+  // A backfilled session trains a pending change only if it happened on or after that change.
+  if(S.progress.pending[sid]&&d>=S.progress.pending[sid].date)delete S.progress.pending[sid];
   openHist=-1;
   if(adv){ advanceAfter(sid); if(!hasDraft())S.today.sid=nextId(); }
   bfSid=sid; bfLog={}; bfResetForm();
@@ -1121,16 +1319,16 @@ function viewBfExercises(sid,wk){
   let h='<div class="bfSub"><span>Exercise log</span><button class="miniB" onclick="bfClearLog()">clear</button></div>'+
      '<div class="note" style="margin-top:0;margin-bottom:10px">Enter actual benchmark results. For other exercises, tap a chip to log at target; tap again to clear.</div><div class="bfBlock">';
   plan.ex.forEach(e=>{
-    const cnt=setsFor(e,wk,bfTargetMode), tgt=repsFor(e,wk,bfTargetMode), log=bfLog[e.id]||[];
+    const tg=setTargets(e,wk,bfTargetMode), cnt=tg.length, tgt=repsFor(e,wk,bfTargetMode), log=bfLog[e.id]||[];
     const done=log.filter(v=>v!=null).length;
     h+='<div class="bfEx"><div class="exTop"><div class="bfExN">'+esc(e.n)+(e.optional?' · optional':'')+'</div><div class="bfExT">'+
-       (e.amrap?"record actual":e.budget?tgt+"min total incl. rest":cnt+" × "+(e.cap?"up to ":"")+tgt+unitOf(e))+'</div></div>';
+       (e.amrap?"record actual":e.budget?tgt+"min total incl. rest":fmtTargets(tg,e))+'</div></div>';
     h+='<div class="chips">';
     for(let i=0;i<Math.max(cnt,log.length);i++){
       if(i>=cnt&&log[i]==null)continue; // Keep completed values visible when reduced targets hide unlogged sets.
       const v=log[i], on=v!=null;
       if(e.amrap){h+=benchmarkField(e,i,v,true);continue;}
-      h+='<button class="chip'+(on?" on":"")+'" onclick="bfLogSet(\''+e.id+'\','+i+','+tgt+')">'+(on?v+unitOf(e):tgt+unitOf(e))+'</button>';
+      h+='<button class="chip'+(on?" on":"")+'" onclick="bfLogSet(\''+e.id+'\','+i+','+(i<cnt?tg[i]:tgt)+')">'+(on?v+unitOf(e):tg[i]+unitOf(e))+'</button>';
     }
     h+='</div>';
     if(done>0&&!e.amrap)h+='<div class="adj"><span class="adjL">Fix last</span><button class="adjB" title="Adjust last logged set by one unit" onclick="bfNudge(\''+e.id+'\',-1)">−</button><button class="adjB" title="Adjust last logged set by one unit" onclick="bfNudge(\''+e.id+'\',1)">+</button></div>';
@@ -1379,7 +1577,7 @@ function lastExposures(sid,e,max){
     if(r.sid!==sid||!r.detail)continue;
     const x=r.detail.find(d=>d.id?d.id===e.id:d.n===e.n&&d.unit===e.unit);
     if(!x||!x.sets||!x.sets.length)continue;
-    out.push({date:String(r.date),x});
+    out.push({date:String(r.date),x,r});
     if(out.length>=max)break;
   }
   return out;
@@ -1420,13 +1618,15 @@ function viewTrain(ph){
   if(s.note)h+='<div class="note">'+esc(s.note)+'</div>';
   h+='<div class="note">Rest days as needed. If shoulder ache returns, stop that movement and ease off next time; get it checked if it keeps coming back.</div>';
 
+  const steps=s.testOnly?{}:sessionProgress(s);
   s.ex.forEach(e=>{
     const w=calendarWeek(S.today.date||dayKey());
-    const cnt=setsFor(e,w), tgt=repsFor(e,w), log=S.today.log[e.id]||[];
+    const tg=setTargets(e,w), cnt=tg.length, tgt=repsFor(e,w), log=S.today.log[e.id]||[];
     const done=log.filter(v=>v!=null).length;
     h+='<div class="ex"><div class="exTop"><div class="exN">'+esc(e.n)+(e.optional?' · optional':'')+'</div><div class="exT">'+
-       (e.amrap?"record actual":e.budget?tgt+"min total incl. rest":cnt+" × "+(e.cap?"up to ":"")+tgt+unitOf(e))+(e.rest?" · "+mmss(e.rest)+" rest":"")+'</div></div>';
+       (e.amrap?"record actual":e.budget?tgt+"min total incl. rest":fmtTargets(tg,e))+(e.rest?" · "+mmss(e.rest)+" rest":"")+'</div></div>';
     h+=viewLast(s.id,e);
+    h+=viewStep(s,e,steps[e.id],done>0);
     if(e.note)h+='<div class="exNote">'+esc(e.note)+'</div>';
     if(e.trackBand){
       const band=(S.today.band&&S.today.band[e.id])||"";
@@ -1438,7 +1638,7 @@ function viewTrain(ph){
       if(i>=cnt&&log[i]==null)continue; // Keep completed values visible when reduced targets hide unlogged sets.
       const v=log[i], on=v!=null;
       if(e.amrap){h+=benchmarkField(e,i,v,false);continue;}
-      h+='<button class="chip'+(on?" on":"")+'" onclick="logSet(\''+e.id+'\','+i+','+tgt+')">'+(on?v+unitOf(e):tgt+unitOf(e))+'</button>';
+      h+='<button class="chip'+(on?" on":"")+'" onclick="logSet(\''+e.id+'\','+i+','+(i<cnt?tg[i]:tgt)+')">'+(on?v+unitOf(e):tg[i]+unitOf(e))+'</button>';
     }
     h+='</div>';
     if(done>0&&!e.amrap)h+='<div class="adj"><span class="adjL">Fix last</span><button class="adjB" title="Adjust last logged set by one unit" onclick="nudge(\''+e.id+'\',-1)">−</button><button class="adjB" title="Adjust last logged set by one unit" onclick="nudge(\''+e.id+'\',1)">+</button></div>';
@@ -1446,6 +1646,7 @@ function viewTrain(ph){
   });
 
   const any=s.ex.some(e=>(S.today.log[e.id]||[]).some(v=>v!=null));
+  if(any&&!s.testOnly)h+=viewFeel(s);
   h+='<div class="acts"><button id="finishSession" class="btn" '+(any?"":"disabled")+' onclick="finish()">Finish session</button>'+
      '<button class="btn ghost" onclick="clearDay()">Clear</button></div>';
   h+='<div class="note">'+(s.testOnly?'Enter your actual result. Leave untested exercises blank. Finishing keeps your A–D rotation unchanged.':'Tap a chip after each set; it logs the target. Use Fix last to correct it. Finishing advances the rotation.')+'</div>';
@@ -1477,7 +1678,7 @@ function viewHistory(){
     if(openHist===i){
       h+='<div style="padding:6px 0 12px 68px;border-bottom:1px solid var(--steel)">';
       if(r.weekSource!=="calendar"&&r.week!=null)h+='<div class="note">Original logged label: week '+esc(r.week)+'. Calendar label above comes from the workout date.</div>';
-      if(r.targetMode)h+='<div class="note">'+esc(r.targetMode)+' targets</div>';
+      if(r.targetMode)h+='<div class="note">'+esc(r.targetMode)+' targets'+(FEELS[r.feel]?' · '+esc(FEELS[r.feel])+(r.feelEx&&r.feelEx.length?': '+esc(r.feelEx.map(id=>(r.detail||[]).find(x=>x.id===id)?.n||id).join(', ')):''):'')+'</div>';
       if(r.note)h+='<div style="font-size:12px;color:var(--galv);padding:0 0 8px;line-height:1.45">'+esc(r.note)+'</div>';
       if(r.rice)h+='<div style="font-size:11px;color:var(--sodium);padding:0 0 8px">Rice bag ✓</div>';
       if(hasD)r.detail.forEach(x=>{
@@ -1495,8 +1696,20 @@ function viewHistory(){
   return h;
 }
 
+const STEP_KINDS={up:"Stepped up",back:"Stepped back",reset:"Reset",milestone:"Milestone"};
+function viewSteps(){
+  const log=S.progress.log.slice(0,8);
+  let h='<div class="sec">Step ups and milestones</div>';
+  if(!log.length)return h+'<div class="empty">No changes yet. Suggestions appear on an exercise in Train once its sessions are marked Clean at target.</div>';
+  log.forEach(x=>{
+    h+='<div class="hist"><span class="histD">'+esc(x.date)+'</span><span class="histS">'+esc(x.sid)+'</span>'+
+       '<span class="histX"><span style="color:var(--chalk)">'+esc(x.n)+'</span> · '+esc(STEP_KINDS[x.kind]||x.kind)+' · '+
+       esc(x.from)+(x.to?' → '+esc(x.to):'')+'</span></div>';
+  });
+  return h;
+}
 function viewProgress(){
-  let h=viewHistory()+'<div class="sec">Maxes</div>';
+  let h=viewHistory()+viewSteps()+'<div class="sec">Maxes</div>';
   Object.keys(PRS).forEach(k=>{
     const list=S.prs[k]||[], last=list.length?list[list.length-1].value:null;
     h+='<div class="pr"'+(list.length?' onclick="togglePr(\''+k+'\')" style="cursor:pointer"':'')+'>'+
@@ -1539,6 +1752,9 @@ function viewProgress(){
      '<label style="width:40px">Secs</label><input id="bfSecs" type="number" step="1" inputmode="numeric" placeholder="0" value="'+esc(bfSecs)+'" oninput="bfSet(\'secs\',this.value)"></div>'+
      '<div class="note" style="margin-top:6px">Used only when no chips are logged above. Totals update live as you tap.</div>'+
      '<div class="field"><label>Note</label><textarea id="bfNote" placeholder="How it felt, substitutions, etc." oninput="bfSet(\'note\',this.value)">'+esc(bfNote)+'</textarea></div>'+
+     '<div class="field"><label for="bfFeel">Felt</label><select id="bfFeel" onchange="bfSet(\'feel\',this.value)"><option value="">Not rated</option>'+
+       Object.keys(FEELS).map(k=>'<option value="'+k+'"'+(k===bfFeel?' selected':'')+'>'+FEELS[k]+'</option>').join('')+'</select></div>'+
+     '<div class="note" style="margin-top:6px">A rated session with exercise detail counts toward step ups like one logged live.</div>'+
      '<div class="field"><label>Rice</label><span style="flex:1;font-size:12px;color:var(--galv);display:flex;align-items:center;gap:8px">'+
        '<input id="bfRice" type="checkbox"'+(bfRice?" checked":"")+' onchange="bfSet(\'rice\',this.checked)" style="flex:0 0 auto;width:18px;height:18px"> Did rice bag wrist prep</span></div>'+
      '<div class="field"><label>Rotate</label><span style="flex:1;font-size:12px;color:var(--galv);display:flex;align-items:center;gap:8px">'+
@@ -1573,6 +1789,7 @@ function viewEdit(){
       '<div class="field"><label>Tier</label><select onchange="editField(\''+s.id+'\',\''+e.id+'\',\'tier\',this.value)">'+
         ["prep","skill","main","accessory"].map(t=>'<option value="'+t+'"'+(e.tier===t?" selected":"")+'>'+t+'</option>').join("")+'</select></div>'+
       '<div class="field"><label>Optional</label><input type="checkbox" '+(e.optional?'checked':'')+' onchange="editField(\''+s.id+'\',\''+e.id+'\',\'optional\',this.checked)"></div>'+
+      (validPerSet(e)?'<div class="note">Per-set targets from step ups: '+esc(fmtTargets(e.perSet,e))+'. Changing sets or reps replaces them.</div>':'')+
       '<div class="field"><label>Progress</label><textarea onchange="editField(\''+s.id+'\',\''+e.id+'\',\'progression\',this.value)">'+esc(e.progression||'')+'</textarea></div>'+
       '<div class="field"><label>Note</label><textarea onchange="editField(\''+s.id+'\',\''+e.id+'\',\'note\',this.value)">'+esc(e.note||"")+'</textarea></div>'+
       '<div class="rowBtns"><button class="miniB" onclick="moveEx(\''+s.id+'\',\''+e.id+'\',-1)">↑</button>'+
@@ -1581,7 +1798,7 @@ function viewEdit(){
   });
   h+='<div class="acts"><button class="btn" onclick="addEx(\''+s.id+'\')">Add exercise</button>'+
      '<button class="btn ghost" onclick="resetPlan()">Use revised defaults</button></div>';
-  h+='<div class="note">Targets stay stable across calendar weeks. Choose reduced or normal targets in Train at any time. Use the exercise guidance to progress manually; tier never adds work automatically. Rest is in seconds. Using revised defaults archives your current plan and unfinished log in Data.</div>';
+  h+='<div class="note">Targets stay stable across calendar weeks. Choose reduced or normal targets in Train at any time. Exercises with a ladder offer step ups in Train after clean sessions; nothing changes until you accept. Tier never adds work automatically. Rest is in seconds. Using revised defaults archives your current plan and unfinished log in Data.</div>';
   return h;
 }
 

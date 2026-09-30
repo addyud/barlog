@@ -20,6 +20,18 @@ A–D is independent of elapsed weeks. Finish selects the successor of the sessi
 
 Unfinished logs keep their original dates over midnight. Empty drafts roll forward. The calendar refreshes on focus, visibility change and a date-change check once per minute; no continuous screen redraw occurs.
 
+## Step ups and milestones
+
+Each exercise's written progression is encoded as a ladder in `LADDERS`, keyed by exercise ID and unit. The app suggests changes; targets change only when the user accepts. Custom exercises, changed units, benchmarks, time budgets and routines older than the current plan version get no ladder. Renaming a default exercise keeps its ladder.
+
+- A "one" ladder adds a rep or second to the first set holding the lowest target (5×1 → 1×2 + 4×1 → … → 5×2). An "all" ladder adds to every set. Stepping back retraces the same rungs. Uneven targets live in the optional `perSet` array; editing sets or reps in Edit replaces them.
+- Finish offers a Clean / Grindy / Ache check-in. Grindy or Ache can name exercises; naming none applies it to the whole session. History records store `feel`, optional `feelEx`, and each exercise's full `target`.
+- A session counts toward a step up only if it was rated Clean for that exercise, used Normal targets, matched the current target and met every set. Records without a rating or target, including all history from before this feature, never count. Each ladder sets how many consecutive counting sessions it needs (1 or 2).
+- Ache on a named exercise offers one step back next time. Unnamed ache blocks step ups without suggesting a step back.
+- A workout offers one step up at a time, going to the ready exercise that has waited longest since its last change. After a change is accepted, other step ups in that workout wait until it has been trained again, whether live or by a backfill dated on or after the change.
+- At the top of a ladder a milestone describes the planned next step. Some offer a reset to a restart dose; all can be acknowledged. Not yet hides a suggestion until that workout's next session.
+- `progress` state (`log`, `pending`, `snooze`, `acks`) belongs to the ongoing log like the calendar: plan switches keep it, and backups include it.
+
 ## Checks
 
 ```sh
@@ -27,6 +39,7 @@ node tests/regression.cjs
 node tests/calendar.cjs
 node tests/benchmarks.cjs
 node tests/rotation.cjs
+node tests/progression.cjs
 ```
 
 The calendar suite uses synthetic records, a controllable clock and local-storage simulation. It covers migration, sparse history, calendar boundaries, DST, leap days, routine changes, backup restoration, drafts across midnight, date correction, backfill, rotation and failed saves.
