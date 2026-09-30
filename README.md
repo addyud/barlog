@@ -25,6 +25,7 @@ Unfinished logs keep their original dates over midnight. Empty drafts roll forwa
 Each exercise's written progression is encoded as a ladder in `LADDERS`, keyed by exercise ID and unit. The app suggests changes; targets change only when the user accepts. Custom exercises, changed units, benchmarks, time budgets and routines older than the current plan version get no ladder. Renaming a default exercise keeps its ladder.
 
 - A "one" ladder adds a rep or second to the first set holding the lowest target (5×1 → 1×2 + 4×1 → … → 5×2). An "all" ladder adds to every set. Stepping back retraces the same rungs. Uneven targets live in the optional `perSet` array; editing sets or reps in Edit replaces them.
+- Train hides the "When to progress" text on exercises with an active ladder, since the step card shows the rule in action; exercises without a ladder keep it. Edit still shows every exercise's text.
 - Finish offers a Clean / Grindy / Ache check-in. Grindy or Ache can name exercises; naming none applies it to the whole session. History records store `feel`, optional `feelEx`, and each exercise's full `target`.
 - A session counts toward a step up only if it was rated Clean for that exercise, used Normal targets, matched the current target and met every set. Records without a rating or target, including all history from before this feature, never count. Each ladder sets how many consecutive counting sessions it needs (1 or 2).
 - Ache on a named exercise offers one step back next time. Unnamed ache blocks step ups without suggesting a step back.
