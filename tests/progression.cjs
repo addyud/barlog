@@ -227,4 +227,21 @@ test('When to progress shows only where no ladder applies; dips wording is repai
  const later=b.json('S');later.plan[1].ex.find(e=>e.id==='b10dips').progression=saved.plan[1].ex.find(e=>e.id==='b10dips').progression;
  assert.equal(boot(later).run(`S.plan[1].ex.find(e=>e.id==='b10dips').progression`),saved.plan[1].ex.find(e=>e.id==='b10dips').progression,'runs once only');
 });
+test('soreness asks about the latest session once four hours have passed, even after midnight',()=>{
+ const a=boot(null,'2026-09-28T18:00:00');
+ train(a,'D',['d11finger'],'clean');
+ // Late session: first set and finish after midnight, so it is dated the same day as the next check.
+ a.time('2026-09-30T00:20:00');a.run(`refreshCalendarDay();S.today.sid='A';logSet('a8',0,6)`);
+ a.time('2026-09-30T00:50:00');a.run(`setFeel('clean');finish()`);assert.equal(a.run('S.history[0].date'),'2026-09-30');
+ a.time('2026-09-30T02:00:00');a.run('refreshCalendarDay()');assert.equal(a.run('viewReadiness()'),'','too soon: no question, and D is not asked about instead');
+ a.time('2026-09-30T05:07:00');a.run('refreshCalendarDay()');assert.match(a.run('viewReadiness()'),/Logged against A on 30\/09/);
+ a.run(`setSoreness('sore')`);assert.equal(a.run('S.history[0].soreness'),'sore');assert.equal(a.run('S.history[1].soreness'),undefined);
+ // A session saved before finish times existed qualifies by date, even when dated today.
+ const legacy=a.json('S');delete legacy.history[0].finishedAt;delete legacy.history[0].soreness;legacy.progress.readyDate='';
+ assert.match(boot(legacy,'2026-09-30T05:07:00').run('viewReadiness()'),/Logged against A on 30\/09/);
+ // A same-day backfill counts as just finished.
+ const b=boot(null,'2026-09-30T20:00:00');b.run(`bfSid='C';bfDate='2026-09-30';bfLog={c3:[5,5,5,5]};addPast()`);
+ assert.ok(b.run('S.history[0].finishedAt'));assert.equal(b.run('viewReadiness()'),'');
+ b.run(`bfSid='C';bfDate='2026-09-29';bfLog={c3:[5,5,5,5]};addPast()`);assert.equal(b.run('S.history[0].finishedAt'),undefined,'earlier backfills carry no time');
+});
 console.log(`${passed} progression groups passed.`);
