@@ -30,9 +30,22 @@ Each exercise's written progression is encoded as a ladder in `LADDERS`, keyed b
 - Ache on a named exercise offers one step back next time. Unnamed ache blocks step ups without suggesting a step back.
 - A workout offers one step up at a time, going to the ready exercise that has waited longest since its last change. After a change is accepted, other step ups in that workout wait until it has been trained again, whether live or by a backfill dated on or after the change.
 - At the top of a ladder a milestone describes the planned next step. Some offer a reset to a restart dose; all can be acknowledged. Not yet hides a suggestion until that workout's next session.
-- `progress` state (`log`, `pending`, `snooze`, `acks`) belongs to the ongoing log like the calendar: plan switches keep it, and backups include it.
+- Lever, tuck planche and the planche lean use "half" steps, following "add 1s to some holds, then all": from even targets the first half of the sets goes up, then the rest.
+- `progress` state (`log`, `pending`, `snooze`, `acks`, `reducedSnooze`) belongs to the ongoing log like the calendar: plan switches keep it, and backups include it.
+
+## Workout support
+
+- The screen stays awake (Screen Wake Lock) while the current workout has logged sets, so the rest timer and its alert stay live. The browser drops the lock when the app is hidden; it is requested again on return. Browsers without the API are unaffected.
+- Progress lists Grindy and Ache flags per exercise for the last six weeks. Ache in two sessions within seven days suggests Reduced targets; it never switches automatically, and Not now holds until a newer ache.
+- Review with AI builds a plain-text summary on the device: current plan, the last six weeks of sessions with check-ins and missed targets, step ups and latest maxes. Share or copy it into an AI assistant; nothing is sent anywhere by the app.
+
+## Backups
+
+`S.backup` records the date and history length of the last completed export, copy or share. A reminder appears in Progress after eight sessions, or after fourteen days with at least one new session, and after five sessions when no backup has been made. Data shows the backup status and, when the app is not installed, an install prompt (the browser's own, where offered).
 
 ## Checks
+
+GitHub Actions runs every suite on each push and pull request (`.github/workflows/tests.yml`).
 
 ```sh
 node tests/regression.cjs
@@ -40,6 +53,7 @@ node tests/calendar.cjs
 node tests/benchmarks.cjs
 node tests/rotation.cjs
 node tests/progression.cjs
+node tests/tools.cjs
 ```
 
 The calendar suite uses synthetic records, a controllable clock and local-storage simulation. It covers migration, sparse history, calendar boundaries, DST, leap days, routine changes, backup restoration, drafts across midnight, date correction, backfill, rotation and failed saves.

@@ -21,6 +21,11 @@ test('ladder rungs retrace in both directions and format compactly',()=>{
  assert.equal(rule.top,2);
  assert.deepEqual(a.json('stepTargets([2,2,1,1,1],LADDERS.b3,-1)'),[2,1,1,1,1]);
  assert.equal(a.json('stepTargets([1,1,1,1,1],LADDERS.b3,-1)'),null);
+ t=[6,6,6,6,6];const lever=[];
+ for(;;){const n=a.json(`stepTargets(${JSON.stringify(t)},LADDERS.a8,1)`);if(!n)break;lever.push(n);t=n;}
+ assert.deepEqual(lever,[[7,7,7,6,6],[7,7,7,7,7],[8,8,8,7,7],[8,8,8,8,8]],'lever adds to some holds, then all');
+ assert.deepEqual(a.json('stepTargets([7,7,7,7,7],LADDERS.a8,-1)'),[7,7,7,6,6]);
+ assert.deepEqual(a.json('stepTargets([5,5,5,5],LADDERS.d12tuck,1)'),[6,6,5,5]);
  assert.deepEqual(a.json('stepTargets([15,15,15],LADDERS.d13support,1)'),[18,18,18]);
  assert.deepEqual(a.json('stepTargets([29,29,29],LADDERS.d13support,1)'),[30,30,30]);
  assert.equal(a.run(`fmtTargets([2,1,1,1,1],S.plan[1].ex.find(e=>e.id==='b3'))`),'1×2 + 4×1');
@@ -79,12 +84,12 @@ test('ache on a named exercise offers a step back; unnamed ache offers nothing',
  train(a,'D',['d12tuck','d11finger'],'ache');let p=steps(a,'D');
  assert.equal(p.d12tuck.kind,'wait');assert.equal(p.d11finger.kind,'wait');
  train(a,'D',['d12tuck','d11finger'],'ache',['d12tuck']);p=steps(a,'D');
- assert.equal(p.d12tuck.kind,'back');assert.deepEqual(p.d12tuck.to,[7,6,6,6]);assert.equal(p.d11finger.kind,'up');
- a.run(`S.today.sid='D';stepAction('d12tuck','accept')`);assert.deepEqual(ex(a,'D','d12tuck').perSet,[7,6,6,6]);
+ assert.equal(p.d12tuck.kind,'back');assert.deepEqual(p.d12tuck.to,[6,6,6,6],'half ladder retraces 2×7s + 2×6s to 4×6s');assert.equal(p.d11finger.kind,'up');
+ a.run(`S.today.sid='D';stepAction('d12tuck','accept')`);assert.equal(ex(a,'D','d12tuck').perSet,undefined);assert.equal(ex(a,'D','d12tuck').reps,6);
  assert.equal(a.run('S.progress.log[0].kind'),'back');assert.equal(steps(a,'D').d12tuck.kind,'wait','no repeat once stepped back');
  train(a,'D',['d12tuck'],'ache',['d12tuck']);a.run(`S.today.sid='D';stepAction('d12tuck','later')`);
  assert.match(a.run(`viewStep(sess(),sess().ex.find(e=>e.id==='d12tuck'),sessionProgress(sess()).d12tuck,false)`),/Kept this target after the ache/);
- assert.deepEqual(ex(a,'D','d12tuck').perSet,[7,6,6,6]);
+ assert.equal(ex(a,'D','d12tuck').reps,6);
 });
 test('milestones at the top can be acknowledged or reset to the planned restart',()=>{
  const a=boot();a.run(`S.plan[1].ex.find(e=>e.id==='b12er').reps=20`);train(a,'B',['b12er'],'clean');
@@ -115,7 +120,7 @@ test('progress and per-set targets survive reload and backup; legacy saves gain 
  const b=boot(JSON.parse(a.store.get('barlog.v1')));assert.deepEqual(b.json('S.progress'),a.json('S.progress'));
  assert.deepEqual(ex(b,'B','b3').perSet,[2,1,1,1,1]);
  b.set('backupText',a.run('snapshot()'));b.run('wipe();applyBackup(backupText)');assert.deepEqual(ex(b,'B','b3').perSet,[2,1,1,1,1]);
- const legacy=a.json('S');delete legacy.progress;const c=boot(legacy);assert.deepEqual(c.json('S.progress'),{log:[],pending:{},snooze:{},acks:{}});
+ const legacy=a.json('S');delete legacy.progress;const c=boot(legacy);assert.deepEqual(c.json('S.progress'),{log:[],pending:{},snooze:{},acks:{},reducedSnooze:''});
  const bad=a.json('S');bad.plan[1].ex.find(e=>e.id==='b3').perSet=[2,1];assert.deepEqual(boot(bad).json(`fullTargets(S.plan[1].ex.find(e=>e.id==='b3'))`),[2,2,2,2,2]);
 });
 test('rated backfills count; they clear a pending change only when on or after it',()=>{
