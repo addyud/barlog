@@ -111,7 +111,7 @@ test('explicit reduced targets preserve all logs, survive backup/restore, and wo
 test('corrupt stored JSON is not overwritten on boot',()=>{const local=new Map([[storageKey,'{broken']]);const other=vm.createContext({...context,localStorage:{getItem:k=>local.get(k),setItem:(k,v)=>local.set(k,v)}});vm.runInContext(source,other);assert.equal(local.get(storageKey),'{broken');});
 test('Train shows the last two results per exercise, newest first, same session only, with legacy name matching',()=>{
  run(`S=blank();S.today.sid='A';logSet('a8',0,6);logSet('a8',1,6);nudge('a8',-1);S.today.date='2026-09-10';finish()`);
- assert.deepEqual(json('S.history[0].detail.find(d=>d.n==="Tuck front lever")'),{id:'a8',n:'Tuck front lever',unit:'s',sets:[6,5]});
+ assert.deepEqual(json('S.history[0].detail.find(d=>d.n==="Tuck front lever")'),{id:'a8',n:'Tuck front lever',unit:'s',sets:[6,5],target:[6,6,6,6,6]});
  run(`S.history.push({date:'2026-09-03',sid:'A',detail:[{n:'Tuck front lever',unit:'s',sets:[4,4]},{n:'Warm up',unit:'min',sets:[5]}]},
    {date:'2026-08-01',sid:'A',detail:[{n:'Tuck front lever',unit:'s',sets:[1]}]},
    {date:'2026-09-12',sid:'C',detail:[{id:'c8',n:'Tuck front lever',unit:'s',sets:[9]}]},
