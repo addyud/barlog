@@ -773,7 +773,7 @@ function viewCalendar(){
 /* ── state ── */
 let S=null, tab="train", timer=null, tick=null, ac=null, openHist=-1, bfSid="A", bfLog={};
 /* Keep backfill fields across chip taps, date changes and re-renders. */
-let bfDate=null, bfReps="", bfSecs="", bfNote="", bfRice=false, bfAdv=null, bfTargetMode="normal", bfFeel="";
+let bfDate=null, bfReps="", bfSecs="", bfNote="", bfRice=false, bfTargetMode="normal", bfFeel="";
 let openPr=null, pendingSession=null;
 /* manual-max form fields, kept across re-renders like the backfill form */
 let mxLift="pullup", mxVal="", mxDate=null;
@@ -800,12 +800,11 @@ function historyWindow(){
     historyMode==="recent"?5:(historyPage+1)*HISTORY_PAGE_SIZE),total:rows.length,pages};
 }
 function expandHist(i){ openHist=openHist===i?-1:i; render(); }
-function setBfSess(id){ bfSid=id; bfLog={}; bfAdv=null; render(); }
+function setBfSess(id){ bfSid=id; bfLog={}; render(); }
 const bfDay=()=>bfDate||dayKey();
-const bfAdvOn=()=>bfAdv==null?bfWillAdv():bfAdv;
 function bfSet(k,v){ ({date:()=>{bfDate=v;render();},reps:()=>bfReps=v,secs:()=>bfSecs=v,
-  note:()=>bfNote=v,rice:()=>bfRice=v,adv:()=>bfAdv=v,feel:()=>bfFeel=FEELS[v]?v:""})[k](); }
-function bfResetForm(){ bfDate=null; bfReps=""; bfSecs=""; bfNote=""; bfRice=false; bfAdv=null; bfTargetMode="normal"; bfFeel=""; }
+  note:()=>bfNote=v,rice:()=>bfRice=v,feel:()=>bfFeel=FEELS[v]?v:""})[k](); }
+function bfResetForm(){ bfDate=null; bfReps=""; bfSecs=""; bfNote=""; bfRice=false; bfTargetMode="normal"; bfFeel=""; }
 function setBfTargets(v){ if(["normal","reduced"].includes(v))bfTargetMode=v;render(); }
 function bfClearLog(){ bfLog={}; render(); }
 function bfPlan(){ return S.plan.find(p=>p.id===bfSid); }
@@ -1001,13 +1000,30 @@ function repsFor(e,w,mode=S.targetMode){ return mode==="reduced"&&e.budget?Math.
 const unitOf=e=>e.unit==="reps"?"":e.unit;
 const sess=()=>S.plan.find(s=>s.id===S.today.sid)||S.plan[0];
 const cycle=()=>S.plan.filter(s=>!s.testOnly);
-const nextId=()=>cycle()[S.rot%cycle().length].id;
+// Next up is the workout trained longest ago. Never-trained workouts come first, in rotation
+// order from the most recent session; the workout just finished is never next while another
+// exists; a log with no A–D sessions falls back to the stored rotation counter, which is
+// kept for older backups.
+function nextId(){
+  const c=cycle(); if(!c.length)return "\u2014";
+  const last={}; let done=null;
+  for(const r of S.history){
+    if(!c.some(p=>p.id===r.sid))continue;
+    const d=String(r.date); if(!last[r.sid]||d>last[r.sid])last[r.sid]=d;
+    if(r.finishedAt&&(!done||r.finishedAt>done.finishedAt))done=r;
+  }
+  const latest=Object.keys(last).sort((a,b)=>last[b].localeCompare(last[a]))[0];
+  if(!latest)return c[S.rot%c.length].id;
+  const i=c.findIndex(p=>p.id===latest), order=c.map((_,k)=>c[(i+1+k)%c.length]).filter(p=>!done||p.id!==done.sid||c.length===1);
+  return order.reduce((best,p)=>(last[p.id]||"")<(last[best.id]||"")?p:best,order[0]).id;
+}
 function advanceAfter(sid){
   const c=cycle(), i=c.findIndex(p=>p.id===sid);if(i<0)return;
   const step=(i-(S.rot%c.length)+c.length)%c.length+1;
   S.rot+=step;
 }
-const rotAt=n=>{ const c=cycle(); return c.length?c[((n%c.length)+c.length)%c.length].id:"\u2014"; };
+// A history change moves next up unless a draft or a confirmed choice holds today's workout.
+function syncNext(){ if(!hasDraft()&&!S.today.selectionConfirmed)S.today.sid=nextId(); }
 
 /* \u2500\u2500 progression \u2500\u2500
    Ladders turn each exercise's written progression into steps. The app only suggests;
@@ -1650,7 +1666,6 @@ function addPast(){
   const d=bfDay();
   const sid=bfSid;
   const wk=calendarWeek(d);
-  const adv=bfAdvOn();
   const note=bfNote.trim();
   const rice=bfRice;
   if(dateNumber(d)==null||d>dayKey()){ alert("Pick a valid workout date no later than today."); return; }
@@ -1682,25 +1697,10 @@ function addPast(){
   // A backfilled session trains a pending change only if it happened on or after that change.
   if(S.progress.pending[sid]&&d>=S.progress.pending[sid].date)delete S.progress.pending[sid];
   openHist=-1;
-  if(adv){ advanceAfter(sid); if(!hasDraft())S.today.sid=nextId(); }
+  syncNext();
   bfSid=sid; bfLog={}; bfResetForm();
   commit();
   toast("Logged "+sid+" \u00b7 next up "+nextId());
-}
-function bfWillAdv(){
-  const p=S.plan.find(x=>x.id===bfSid);
-  const latest=historyRows()[0];
-  return !(p&&p.testOnly)&&!hasDraft()&&bfSid===nextId()&&bfDay()===dayKey()&&(!latest||bfDay()>latest.record.date);
-}
-function rotHint(adv){
-  const c=cycle(),i=c.findIndex(p=>p.id===bfSid);
-  const id=esc(adv&&i>=0?c[(i+1)%c.length].id:nextId());
-  return (adv?"Set next after this session":"Leave the rotation where it is")+
-    ' \u2014 next up becomes <b style="color:var(--sodium)">'+id+'</b>';
-}
-function bfRotHint(){
-  const el=document.getElementById("bfRotHint"), cb=document.getElementById("bfAdv");
-  if(el&&cb)el.innerHTML=rotHint(cb.checked);
 }
 function viewBfExercises(sid,wk){
   const plan=S.plan.find(p=>p.id===sid); if(!plan)return"";
@@ -1744,12 +1744,7 @@ function delHist(i){
   if(!confirm("Remove this entry?"))return;
   S.history.splice(i,1);
   openHist=-1;
-  const p=S.plan.find(x=>x.id===r.sid);
-  const counted=!(p&&p.testOnly);
-  if(counted&&S.rot>0&&confirm("Pull the rotation back one too?\n\nNext up becomes "+rotAt(S.rot-1)+" instead of "+rotAt(S.rot)+".")){
-    S.rot=Math.max(0,S.rot-1);
-    if(!hasDraft())S.today.sid=nextId();
-  }
+  syncNext();
   commit();
   toast("Removed \u00b7 next up "+nextId());
 }
@@ -1758,6 +1753,7 @@ function setHistDate(i,v){
   r.date=v;
   if(r.weekSource==="calendar")r.week=calendarWeek(v);
   openHist=-1;
+  syncNext();
   commit();
   toast("Moved to "+shortD(v));
 }
@@ -1775,11 +1771,6 @@ function delMax(k,i){
   list.splice(i,1);
   commit();
   toast("Max removed");
-}
-function bumpRot(d){
-  S.rot=Math.max(0,S.rot+d);
-  if(!hasDraft())S.today.sid=nextId();
-  commit();
 }
 
 /* ── data ── */
@@ -2162,18 +2153,12 @@ function viewProgress(){
      '<div class="note" style="margin-top:6px">A rated session with exercise detail counts toward step ups like one logged live.</div>'+
      '<div class="field"><label>Rice</label><span style="flex:1;font-size:12px;color:var(--galv);display:flex;align-items:center;gap:8px">'+
        '<input id="bfRice" type="checkbox"'+(bfRice?" checked":"")+' onchange="bfSet(\'rice\',this.checked)" style="flex:0 0 auto;width:18px;height:18px"> Did rice bag wrist prep</span></div>'+
-     '<div class="field"><label>Rotate</label><span style="flex:1;font-size:12px;color:var(--galv);display:flex;align-items:center;gap:8px">'+
-       '<input id="bfAdv" type="checkbox"'+(bfAdvOn()?" checked":"")+' onchange="bfSet(\'adv\',this.checked);bfRotHint()" style="flex:0 0 auto;width:18px;height:18px">'+
-       '<span id="bfRotHint">'+rotHint(bfAdvOn())+'</span></span></div>'+
+     '<div class="note" style="margin-top:6px">Next up follows the workout you trained longest ago, so a backfilled session moves it on its own.</div>'+
      '<div class="acts"><button class="btn" onclick="addPast()">Add session</button></div>';
 
   h+='<div class="sec">Review with AI</div>'+
      '<div class="note">A plain-text summary of your plan and the last six weeks: sets, check-ins, step ups and maxes. Share it to your AI app, add your question, and ask for a review. It is built on this device and only goes where you send it.</div>'+
      '<div class="acts">'+(navigator.share?'<button class="btn" onclick="shareCoach()">Share summary</button><button class="btn ghost" onclick="copyCoach()">Copy</button>':'<button class="btn" onclick="copyCoach()">Copy summary</button>')+'</div>';
-  h+='<div class="sec">Rotation</div>'+
-     '<div class="note">Next up is '+nextId()+'. If the loop has drifted out of step with what you actually did, nudge it.</div>'+
-     '<div class="acts"><button class="btn ghost" style="flex:1" onclick="bumpRot(-1)">← back one</button>'+
-     '<button class="btn ghost" style="flex:1" onclick="bumpRot(1)">forward one →</button></div>';
   return h;
 }
 
