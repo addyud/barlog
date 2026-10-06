@@ -209,4 +209,20 @@ test('max tests wait six weeks per lift, step aside for light sessions and wrist
  assert.equal(b.run(`S.plan[2].ex.find(e=>e.id==='c8').max`),'lever');assert.equal(b.run('S.maxKeysVersion'),1);
  assert.equal(boot().run(`S.today.sid='T';maxControl(sess())`),'','no switch on the benchmark session');
 });
+test('a wrist break that drops most of a workout offers the longest-waiting hanging workout instead',()=>{
+ const a=boot(null,'2026-10-06T08:00:00');
+ a.run(`S.history=[{date:'2026-09-30',sid:'A',detail:[]},{date:'2026-10-02',sid:'C',detail:[]},{date:'2026-10-04',sid:'B',detail:[]}];syncNext()`);
+ assert.equal(a.run('S.today.sid'),'D');assert.equal(a.run('viewWristSwap(sess())'),'','nothing without the break');
+ a.run('setWristBreak(true)');let html=a.run('viewTrain(phase())');
+ assert.match(html,/Wrist break drops 4 of 6 exercises here\.<\/b> Train A · Pull \/ front lever instead\? D comes back next time\./,'A has waited longest of the hanging workouts');
+ assert.match(html,/onclick="switchForWrist\('A'\)">Train A today/);
+ a.run(`S.today.sid='B'`);assert.equal(a.run('viewWristSwap(sess())'),'','B keeps most of its work (2 of 5 dropped)');
+ a.run(`S.today.sid='C'`);assert.equal(a.run('viewWristSwap(sess())'),'','C keeps 2 of 4');
+ a.run(`S.today.sid='D';switchForWrist('C')`);assert.equal(a.run('S.today.sid'),'D','only the offered workout is accepted');
+ a.run(`switchForWrist('A')`);assert.equal(a.run('S.today.sid'),'A');assert.equal(a.run('S.today.selectionConfirmed'),true);assert.equal(a.run('S.today.wristBreak'),true,'the break stays on');
+ assert.equal(a.run('viewWristSwap(sess())'),'');
+ a.run(`logSet('a8',0,6);setFeel('clean');finish()`);assert.equal(a.run('S.today.sid'),'D','D comes back next time');
+ a.run(`setWristBreak(true);logSet('d13support',0,15)`);assert.equal(a.run('viewWristSwap(sess())'),'','no offer once sets are logged');
+ a.run('clearDay()');a.run('setWristBreak(true)');const before=a.json('S');a.fail(true);a.run(`switchForWrist('A')`);assert.deepEqual(a.json('S'),before);
+});
 console.log(`${passed} tool groups passed.`);
