@@ -1037,7 +1037,11 @@ const LADDERS={
   c3:{unit:"reps",mode:"one",step:1,top:6,clean:2,next:"4 \u00d7 6 reached. Reassess difficulty before adding sets."},
   c6:{unit:"reps",mode:"one",step:1,top:8,clean:2,next:"3 \u00d7 8 reached. Time for a harder variation."},
   d11finger:{unit:"s",mode:"all",step:1,top:10,clean:1,next:"3 \u00d7 10s reached. Build the weaker side toward about 15s, then add brief free-hand lifts of 1\u20132s."},
-  d12tuck:{unit:"s",mode:"half",step:1,top:8,clean:2,reset:5,next:"4 \u00d7 8s reached. Next: flatten the back (hips to shoulder height) at 5s holds, then advanced tuck at 3s."},
+  d12tuck:{unit:"s",mode:"half",step:1,top:8,clean:2,next:"4 \u00d7 8s reached. Move to the next stage.",
+    stages:[{n:"Tuck planche"},
+      {n:"Flat tuck planche",reps:5,note:"Hips up to shoulder height, back flat, straight arms. Stop when hips drop or elbows bend. Fix the chip to your actual seconds."},
+      {n:"Advanced tuck planche",reps:3,note:"Knees drawn away from the chest, hips at shoulder height, back flat. Stop when hips drop or elbows bend. Fix the chip to your actual seconds."},
+      {n:"Band-assisted straddle planche",reps:3,trackBand:true,note:"Band from the bar under the hips, legs in a straddle, straight arms. Pick a band that makes the hold hard and log it. Stop when hips drop or elbows bend."}]},
   d9lean:{unit:"s",mode:"half",step:1,top:8,clean:2,reset:5,next:"8s at this depth. Go slightly deeper and drop back to 5s."},
   d13support:{unit:"s",mode:"all",step:3,top:30,clean:2,reset:15,next:"3 \u00d7 30s reached. Turn the rings out at shorter holds and rebuild to 30s."}
 };
@@ -1197,6 +1201,7 @@ function stepAction(exId,action){
   }else if(action==="swap"&&p.kind==="milestone"&&p.swap){
     const to=Array(e.sets).fill(p.swap.reps), was=e.n;
     applyTargets(e,to); e.n=p.swap.n; if(p.swap.note)e.note=p.swap.note;
+    if(p.swap.trackBand)e.trackBand=true; else delete e.trackBand;
     progressNote(s.id,p.from,to,"swap",{...e,n:was+" \u2192 "+e.n}); S.progress.pending[s.id]={id:e.id,date:dayKey()};
     delete S.progress.acks[p.pool];
     msg="Switched \u00b7 "+e.n+" "+fmtTargets(to,e,true);
@@ -1601,7 +1606,7 @@ function editField(sid,exId,field,val){
   if(["sets","reps","rest"].indexOf(field)>=0){ const n=parseInt(val,10); e[field]=isNaN(n)?0:Math.max(0,n); }
   else e[field]=val;
   if(field==="sets"||field==="reps")delete e.perSet; // a manual dose replaces step-up targets
-  if(field==="wrist"&&!val)delete e.wrist;
+  if((field==="wrist"||field==="trackBand")&&!val)delete e[field];
   save();
 }
 function delEx(sid,exId){
@@ -2207,6 +2212,7 @@ function viewEdit(){
       '<div class="field"><label>Tier</label><select onchange="editField(\''+s.id+'\',\''+e.id+'\',\'tier\',this.value)">'+
         ["prep","skill","main","accessory"].map(t=>'<option value="'+t+'"'+(e.tier===t?" selected":"")+'>'+t+'</option>').join("")+'</select></div>'+
       '<div class="field"><label>Optional</label><input type="checkbox" '+(e.optional?'checked':'')+' onchange="editField(\''+s.id+'\',\''+e.id+'\',\'optional\',this.checked)"></div>'+
+      '<div class="field"><label>Track band</label><input type="checkbox" '+(e.trackBand?'checked':'')+' onchange="editField(\''+s.id+'\',\''+e.id+'\',\'trackBand\',this.checked)"><span class="note" style="margin:0;flex:1">Adds a band field to log which band each session</span></div>'+
       '<div class="field"><label>Palms down</label><input type="checkbox" '+(e.wrist?'checked':'')+' onchange="editField(\''+s.id+'\',\''+e.id+'\',\'wrist\',this.checked)"><span class="note" style="margin:0;flex:1">Greyed out on a wrist break'+(typeof e.wrist==='string'?': '+esc(e.wrist):'')+'</span></div>'+
       (altOf(e)?'<div class="note">Alternates each session: '+esc(e.alt.join(' / '))+'. Train shows which one is next.</div>':'')+
       (validPerSet(e)?'<div class="note">Per-set targets from step ups: '+esc(fmtTargets(e.perSet,e))+'. Changing sets or reps replaces them.</div>':'')+

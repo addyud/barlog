@@ -293,4 +293,20 @@ test('the push-up milestone offers pike push ups, then elevated pike, then only 
  assert.equal(steps(b,'B').b11push.swap,undefined,'a renamed exercise is not in the chain');
  const before=b.json('S');b.fail(true);b.run(`stepAction('b11push','ack')`);assert.deepEqual(b.json('S'),before);
 });
+test('the planche milestone walks tuck, flat tuck, advanced tuck and band-assisted straddle, keeping its wrist flag',()=>{
+ const a=boot();const pl=()=>ex(a,'D','d12tuck');
+ const top=()=>{a.run(`S.plan[3].ex.find(e=>e.id==='d12tuck').reps=8;delete S.plan[3].ex.find(e=>e.id==='d12tuck').perSet`);train(a,'D',['d12tuck'],'clean');train(a,'D',['d12tuck'],'clean');a.run(`S.today.sid='D';S.today.maxTest=false`);return steps(a,'D').d12tuck;};
+ let p=top();assert.equal(p.kind,'milestone');assert.equal(p.swap.n,'Flat tuck planche');assert.equal(p.rule.reset,undefined,'stages replace the plain reset');
+ assert.match(a.run('viewTrain(phase())'),/Switch to Flat tuck planche · 4 × 5s/);
+ a.run(`stepAction('d12tuck','swap')`);assert.equal(pl().n,'Flat tuck planche');assert.equal(pl().reps,5);assert.equal(pl().cap,true);assert.equal(pl().wrist,'On parallettes if you have them, or skip today.','wrist cue kept');
+ p=top();assert.equal(p.swap.n,'Advanced tuck planche');a.run(`stepAction('d12tuck','swap')`);assert.equal(pl().reps,3);assert.equal(pl().trackBand,undefined);
+ p=top();assert.equal(p.swap.n,'Band-assisted straddle planche');a.run(`stepAction('d12tuck','swap')`);
+ assert.equal(pl().n,'Band-assisted straddle planche');assert.equal(pl().reps,3);assert.equal(pl().trackBand,true);assert.match(pl().note,/Pick a band that makes the hold hard/);
+ assert.match(a.run('viewTrain(phase())'),/<label>Band<\/label><input value="" placeholder="color or resistance" oninput="setTodayBand\('d12tuck'/,'band field appears in Train');
+ a.run(`setTodayBand('d12tuck','red');[0,1,2,3].forEach(i=>logSet('d12tuck',i,3));finish()`);assert.equal(a.run(`S.history[0].detail.find(x=>x.id==='d12tuck').band`),'red');
+ p=top();assert.equal(p.kind,'milestone');assert.equal(p.swap,undefined,'end of the chain');
+ assert.deepEqual(a.json('S.progress.log.filter(x=>x.kind==="swap").map(x=>x.n).reverse()'),['Tuck planche → Flat tuck planche','Flat tuck planche → Advanced tuck planche','Advanced tuck planche → Band-assisted straddle planche']);
+ a.run(`editField('D','d12tuck','trackBand',false)`);assert.equal(pl().trackBand,undefined);assert.ok(a.run(`editSess='D';viewEdit()`).includes('<label>Track band</label>'));
+ a.run(`editField('D','d12tuck','trackBand',true)`);assert.equal(pl().trackBand,true);
+});
 console.log(`${passed} progression groups passed.`);
