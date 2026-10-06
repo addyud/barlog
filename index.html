@@ -745,6 +745,29 @@ function maxControl(s){
   if(on&&c.length>1)h+='<div class="chips" style="margin-top:8px">'+c.map(x=>'<button class="chip'+(x.e.max===m.e.max?' on':'')+'" aria-pressed="'+(x.e.max===m.e.max)+'" onclick="setMaxTest(\''+x.e.max+'\')">'+esc(benchName(x.b))+'</button>').join('')+'</div>';
   return h;
 }
+// When a wrist break would drop more than half of a workout, offer the workout trained
+// longest ago that keeps at least half of its own; next up brings the dropped one back.
+const dropShare=s=>{ const w=s.ex.filter(e=>e.tier!=="prep"); return w.length?w.filter(e=>e.wrist).length/w.length:0; };
+function wristAlternative(s){
+  if(!S.today.wristBreak||s.testOnly||hasDraft()||dropShare(s)<=0.5)return null;
+  const last={}; for(const r of S.history){ const d=String(r.date); if(!last[r.sid]||d>last[r.sid])last[r.sid]=d; }
+  const others=cycle().filter(p=>p.id!==s.id&&dropShare(p)<=0.5).sort((a,b)=>(last[a.id]||"").localeCompare(last[b.id]||""));
+  return others[0]||null;
+}
+function switchForWrist(id){
+  const alt=wristAlternative(sess()); if(!alt||alt.id!==id)return;
+  const previous=JSON.parse(JSON.stringify(S.today));
+  S.today.sid=id;S.today.selectionConfirmed=true;delete S.today.maxTest;
+  if(!save()){S.today=previous;render();return;}
+  pendingSession=null;stopTimer();render();
+  document.getElementById('workoutTitle')?.focus?.();
+}
+function viewWristSwap(s){
+  const alt=wristAlternative(s); if(!alt)return "";
+  const w=s.ex.filter(e=>e.tier!=="prep"), dropped=w.filter(e=>e.wrist).length;
+  return '<div class="step back"><b>Wrist break drops '+dropped+' of '+w.length+' exercises here.</b> Train '+esc(alt.id)+' \u00b7 '+esc(alt.name)+' instead? '+esc(s.id)+' comes back next time.'+
+    '<div class="rowBtns"><button class="miniB go" onclick="switchForWrist(\''+alt.id+'\')">Train '+esc(alt.id)+' today</button></div></div>';
+}
 function wristControl(){
   const on=!!S.today.wristBreak;
   return '<button class="daily toggle'+(on?" on":"")+'" role="switch" aria-checked="'+on+'" onclick="setWristBreak('+(!on)+')">'+
@@ -1867,7 +1890,7 @@ function viewTrain(ph){
     if(hasDraft())h+='<div class="note">Finish or clear this workout before changing. Your logged sets stay with this workout.</div>';
   }
   h+='</details>';
-  h+=viewReadiness()+viewReducedHint()+viewCalendar();
+  h+=viewReadiness()+viewWristSwap(s)+viewReducedHint()+viewCalendar();
 
   /* Daily rice tracking is available with every routine. */
   h+='<div class="daily'+(S.today.rice?" on":"")+'" onclick="toggleRice()"><span class="box">'+(S.today.rice?"✓":"")+'</span>'+
