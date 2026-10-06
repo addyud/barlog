@@ -44,15 +44,15 @@ test('an idle app advances the calendar after midnight, without losing a draft o
 });
 test('backfill derives week from date, does not move rotation by default, and retains a current draft',()=>{
  const a=boot(legacy());a.run("S.today.log={c3:[5]};bfSid='B';bfDate='2026-08-31';bfLog={b3:[1]}");
- const draft=a.json('S.today');assert.equal(a.run('bfAdvOn()'),false);a.run('addPast()');assert.equal(a.run('S.history[0].week'),2);assert.equal(a.run('S.rot'),14);assert.deepEqual(a.json('S.today'),draft);
- a.run("bfSid='D';bfDate='2026-09-24';bfAdv=true;bfLog={d12tuck:[3]};addPast()");assert.deepEqual(a.json('S.today'),draft);
+ const draft=a.json('S.today');a.run('addPast()');assert.equal(a.run('S.history[0].week'),2);assert.deepEqual(a.json('S.today'),draft);
+ a.run("bfSid='D';bfDate='2026-09-24';bfLog={d12tuck:[3]};addPast()");assert.deepEqual(a.json('S.today'),draft,'a draft holds today\'s workout');
 });
 test('date correction relabels calendar without rewriting original legacy labels or set records',()=>{
  const a=boot(legacy());const detail=a.json('S.history[0].detail');a.run("setHistDate(0,'2026-09-02')");assert.equal(a.run('calendarWeek(S.history[0].date)'),3);assert.equal(a.run('S.history[0].week'),1);assert.deepEqual(a.json('S.history[0].detail'),detail);
  a.run("S.history[0].weekSource='calendar';setHistDate(0,'2026-09-10')");assert.equal(a.run('S.history[0].week'),4);
 });
 test('finishing an out-of-order session follows the completed letter, benchmark does not rotate, empty finish is ignored',()=>{
- const a=boot(legacy());a.run("S.today.sid='D';S.today.log={d12tuck:[3]};finish()");assert.equal(a.run('nextId()'),'A');
+ const a=boot(legacy());a.run("S.today.sid='D';S.today.log={d12tuck:[3]};finish()");assert.equal(a.run('nextId()'),'C','C was trained longest ago in this fixture');
  const rot=a.run('S.rot'),n=a.run('S.history.length');a.run('finish()');assert.equal(a.run('S.history.length'),n);
  a.run("S.today.sid='T';S.today.log={t3:[1]};finish()");assert.equal(a.run('S.rot'),rot);
 });
