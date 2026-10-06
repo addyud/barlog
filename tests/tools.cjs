@@ -113,4 +113,57 @@ test('light sessions read clearly in history, backfill, suggestions and the AI s
  train(a,'C',['c3'],'ache',['c3'],'2026-09-26');train(a,'D',['d11finger'],'ache',['d11finger'],'2026-09-27');
  assert.match(a.run('viewTrain(phase())'),/Make today a light session\?.*Make today light/s);
 });
+test('wrist break dims palms-down work, keeps it loggable, and leaves ladders untouched',()=>{
+ const a=boot();a.run(`S.today.sid='B'`);
+ let html=a.run('viewTrain(phase())');
+ assert.ok(html.indexOf('Wrist break today')<html.indexOf('Light session today'),'switch sits with the light session');
+ assert.ok(!html.includes('wristOff'));
+ a.run('setWristBreak(true)');html=a.run('viewTrain(phase())');
+ assert.match(html,/<div class="ex wristOff"><div class="exTop"><div class="exN">Freestanding HSPU/);
+ assert.match(html,/Wrist break: Do these on the bars, with a neutral wrist\./);
+ assert.match(html,/<div class="ex wristOff"><div class="exTop"><div class="exN">Push ups/);
+ assert.ok(!/<div class="ex wristOff"><div class="exTop"><div class="exN">(Dips|Freestanding deficit|Band external)/.test(html),'bar and band work untouched');
+ assert.match(html,/aria-checked="true" onclick="setWristBreak\(false\)"/);
+ // Palms-down work can still be logged (bar version), but it does not count toward its ladder.
+ a.run(`[0,1,2,3,4].forEach(i=>logSet('b3',i,1));[0,1].forEach(i=>logSet('b12er',i,15));setFeel('clean');finish()`);
+ assert.equal(a.run('S.history[0].wristBreak'),true);assert.equal(a.run('S.today.wristBreak'),undefined,'off after finishing');
+ const p=a.json(`sessionProgress(S.plan.find(x=>x.id==='B'))`);
+ assert.equal(p.b3.streak,0,'HSPU on bars does not count');assert.equal(p.b12er.kind,'up','band rotations count as usual');
+ assert.match(a.run(`S.today.sid='B';viewTrain(phase())`),/Last 25\/09<\/span> 1, 1, 1, 1, 1 <span>· wrist break<\/span>/);
+ a.run(`stepAction('b12er','accept')`);a.run(`S.today.sid='A';logSet('a8',0,6);finish()`);
+ // A pending change on a palms-down exercise survives a wrist-break session of that workout.
+ a.run(`S.today.sid='B';[0,1,2,3,4].forEach(i=>logSet('b3',i,1));setFeel('clean');finish()`);
+ a.run(`S.today.sid='B';stepAction('b3','accept');setWristBreak(true);[0,1,2,3,4].forEach(i=>logSet('b3',i,1));finish()`);
+ assert.equal(a.run('S.progress.pending.B.id'),'b3','not trained on the floor yet');
+ a.run(`S.today.sid='B';setWristBreak(true);[0,1].forEach(i=>logSet('b12er',i,15));finish()`);
+ assert.equal(a.run('S.progress.pending.B.id'),'b3','a wrist-break session without the exercise does not clear it either');
+ a.run(`S.today.sid='B';[0,1,2,3,4].forEach(i=>logSet('b3',i,1));finish()`);
+ assert.equal(a.run('S.progress.pending.B'),undefined,'cleared once a session without the break happens');
+});
+test('wrist break resets with the day, shows in history, review and summary, and is editable',()=>{
+ const a=boot();a.run(`S.today.sid='D';setWristBreak(true)`);a.time('2026-09-26T08:00:00');a.run('refreshCalendarDay()');
+ assert.equal(a.run('S.today.wristBreak'),undefined,'an unused break ends with the day');
+ a.run(`setWristBreak(true);logSet('d13support',0,15)`);a.time('2026-09-27T01:00:00');a.run('refreshCalendarDay()');assert.equal(a.run('S.today.wristBreak'),true,'a draft over midnight keeps it');
+ a.run('clearDay()');assert.equal(a.run('S.today.wristBreak'),undefined);
+ a.run(`setWristBreak(true);logSet('d13support',0,15);logSet('d14er',0,15);setFeel('clean');finish();openHist=0`);
+ assert.match(a.run('viewHistory()'),/Full session · Clean · Wrist break/);
+ assert.match(a.run('viewCheckins()'),/Ache 0 · Wrist break 1/);
+ assert.match(a.run('coachSummary()'),/2026-09-27 D wrist break \[Clean\]/);
+ assert.ok(a.run(`editSess='D';viewEdit()`).includes('Greyed out on a wrist break: Skip today.'));
+ a.run(`editField('D','d13support','wrist',true)`);assert.equal(a.run(`S.plan[3].ex.find(e=>e.id==='d13support').wrist`),true);
+ assert.match(a.run(`S.today.sid='D';setWristBreak(true);viewTrain(phase())`),/Ring support hold.*Wrist break: Skip today\./s);
+ a.run(`editField('D','d13support','wrist',false)`);assert.equal(a.run(`S.plan[3].ex.find(e=>e.id==='d13support').wrist`),undefined);
+ const before=a.json('S');a.fail(true);a.run('setWristBreak(false)');assert.deepEqual(a.json('S'),before);
+});
+test('wrist cues are added once to saved default exercises and respect renames and removals',()=>{
+ const a=boot();const saved=a.json('S');delete saved.wristCuesVersion;
+ for(const p of saved.plan)for(const e of p.ex)delete e.wrist;
+ saved.plan[1].ex.find(e=>e.id==='b11push').n='Diamond push ups';
+ const b=boot(saved);assert.equal(b.run('S.wristCuesVersion'),1);
+ assert.equal(b.run(`S.plan[1].ex.find(e=>e.id==='b3').wrist`),'Do these on the bars, with a neutral wrist.');
+ assert.equal(b.run(`S.plan[1].ex.find(e=>e.id==='b11push').wrist`),undefined,'renamed exercise untouched');
+ assert.equal(b.run(`S.plan[1].ex.find(e=>e.id==='b10dips').wrist`),undefined);
+ const later=b.json('S');delete later.plan[3].ex.find(e=>e.id==='d12tuck').wrist;
+ assert.equal(boot(later).run(`S.plan[3].ex.find(e=>e.id==='d12tuck').wrist`),undefined,'a deliberate removal sticks');
+});
 console.log(`${passed} tool groups passed.`);

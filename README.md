@@ -44,6 +44,10 @@ Each exercise's written progression is encoded as a ladder in `LADDERS`, keyed b
 - Progress lists Grindy and Ache flags per exercise for the last six weeks. Ache in two sessions within seven days suggests making today a light session; it never switches automatically, and Not now holds until a newer ache.
 - Review with AI builds a plain-text summary on the device: current plan, the last six weeks of sessions with check-ins and missed targets, step ups and latest maxes. Share or copy it into an AI assistant; nothing is sent anywhere by the app.
 
+## Wrist break
+
+Palms-down exercises carry a `wrist` cue (text, or `true` for "Skip today."), set in Edit with the Palms down box and added once to saved default exercises by `wristCuesVersion`. The Wrist break today switch next to Light session dims those exercises in Train and shows the cue (bar swap or skip); they stay loggable for bar versions. It applies to the current workout only: finishing turns it off, an unused switch ends with the day, and a draft over midnight keeps it. The finished record carries `wristBreak`. Such sessions never count toward the ladders of palms-down exercises and do not clear a pending change on one; other exercises count as usual. Last/Before, history, the check-in review and the AI summary mark wrist-break sessions.
+
 ## Backups
 
 Share hands the backup to the share sheet as a `.txt` file holding the same JSON, because Chrome only shares files of listed types and refuses `.json`; Restore accepts either. A share that fails for any reason other than cancelling saves the file to Downloads instead, since a failed share cannot be retried without a fresh tap. `S.backup` records the date and history length of the last completed export, copy or share. A reminder appears in Progress after eight sessions, or after fourteen days with at least one new session, and after five sessions when no backup has been made. Data shows the backup status and, when the app is not installed, an install prompt (the browser's own, where offered).
