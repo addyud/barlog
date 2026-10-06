@@ -149,7 +149,6 @@ test('wrist break resets with the day, shows in history, review and summary, and
  assert.match(a.run('viewHistory()'),/Full session · Clean · Wrist break/);
  assert.match(a.run('viewCheckins()'),/Ache 0 · Wrist break 1/);
  assert.match(a.run('coachSummary()'),/2026-09-27 D wrist break \[Clean\]/);
- assert.ok(a.run(`editSess='D';viewEdit()`).includes('Greyed out on a wrist break: Skip today.'));
  a.run(`editField('D','d13support','wrist',true)`);assert.equal(a.run(`S.plan[3].ex.find(e=>e.id==='d13support').wrist`),true);
  assert.match(a.run(`S.today.sid='D';S.today.maxTest=false;setWristBreak(true);viewTrain(phase())`),/Ring support hold.*Wrist break: Skip today\./s);
  a.run(`editField('D','d13support','wrist',false)`);assert.equal(a.run(`S.plan[3].ex.find(e=>e.id==='d13support').wrist`),undefined);

@@ -46,13 +46,6 @@ button{font-family:inherit}
 .sec{font-family:var(--mono);font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:var(--galv);margin:26px 0 4px;padding-bottom:7px;border-bottom:1px solid var(--steel-hi)}
 .note{color:var(--galv);font-size:11.5px;line-height:1.6;margin-top:12px}
 
-.sessions{display:flex;gap:6px;margin:16px 0 6px}
-.sesswrap{position:relative;flex:1;display:flex}
-.sess{flex:1;background:var(--steel);border:1px solid var(--steel-hi);border-radius:3px;padding:11px 3px 9px;display:flex;flex-direction:column;align-items:center;gap:3px}
-.sess.on{background:var(--steel-hi);border-color:var(--sodium)}
-.sessL{font-family:var(--disp);font-weight:700;font-size:22px;line-height:1;color:var(--chalk)}
-.sess.on .sessL{color:var(--sodium)}
-.sessN{font-family:var(--mono);font-size:9px;letter-spacing:.04em;text-transform:uppercase;color:var(--galv);text-align:center;line-height:1.3}
 .trainingDay{display:flex;align-items:center;gap:18px;margin-top:20px;padding:20px 18px;border:1px solid var(--sodium-dim);border-left:4px solid var(--sodium);border-radius:4px;background:var(--steel)}
 .trainingLetter{flex:0 0 auto;font-family:var(--disp);font-size:64px;font-weight:700;line-height:1;color:var(--sodium)}
 .trainingInfo{min-width:0}
@@ -143,7 +136,6 @@ button{font-family:inherit}
 .field label{font-family:var(--mono);font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:var(--galv);width:52px;flex-shrink:0}
 .field input,.field select,.field textarea{flex:1;min-width:0;background:var(--steel);border:1px solid var(--steel-hi);border-radius:3px;color:var(--chalk);padding:9px 10px;font-family:var(--mono);font-size:13px}
 .field textarea{font-family:var(--body);min-height:56px;resize:vertical}
-.editEx{padding:15px 0;border-bottom:1px solid var(--steel)}
 .rowBtns{display:flex;gap:6px;margin-top:10px}
 .miniB{padding:8px 12px;background:none;border:1px solid var(--steel-hi);border-radius:3px;color:var(--galv);font-family:var(--mono);font-size:10px;letter-spacing:.08em;text-transform:uppercase}
 .miniB.danger{border-color:var(--rust);color:var(--rust)}
@@ -167,7 +159,7 @@ textarea.dump{width:100%;height:150px;background:var(--steel);border:1px solid v
 "use strict";
 
 /* ══ DEFAULT PLAN ══ Edit here only if you want to reset to factory.
-   Day to day, use the Edit tab instead: those changes save. */
+   Saved plans change through step ups, stage switches and one-time repairs; there is no Edit tab. */
 const DEFAULT_PLAN = [
   {
     "id": "A",
@@ -779,7 +771,7 @@ function viewCalendar(){
 }
 
 /* ── state ── */
-let S=null, tab="train", timer=null, tick=null, ac=null, editSess="A", openHist=-1, bfSid="A", bfLog={};
+let S=null, tab="train", timer=null, tick=null, ac=null, openHist=-1, bfSid="A", bfLog={};
 /* Keep backfill fields across chip taps, date changes and re-renders. */
 let bfDate=null, bfReps="", bfSecs="", bfNote="", bfRice=false, bfAdv=null, bfTargetMode="normal", bfFeel="";
 let openPr=null, pendingSession=null;
@@ -975,7 +967,7 @@ function switchPlan(archivedIndex){
     {date:dayKey(),sid:nextId(),log:{},band:{},rice:false};
   if(!save()){ S=previous; render(); return; }
   stopTimer(); bfLog={}; bfResetForm();
-  editSess=S.plan[0].id; bfSid=S.today.sid; tab="train"; render();
+  bfSid=S.today.sid; tab="train"; render();
   toast("Plan switched. Previous plan and unfinished log saved in Data.");
 }
 function restorePlan(i){ switchPlan(i); }
@@ -1239,7 +1231,7 @@ function viewStep(s,e,p,logged){
       (p.rule.reset?btn("reset","Switched \u00b7 reset to "+esc(fmtTargets(Array(e.sets).fill(p.rule.reset),e,true)),true):"")+btn("ack","Got it",!p.rule.reset&&!p.swap)+'</div></div>';
   }
   let line;
-  if(p.kind==="top")line="Top of this ladder. Change the exercise in Edit when you move on.";
+  if(p.kind==="top")line="Top of this ladder.";
   else if(p.kind==="queued")line=p.changed?"Step up ready after the "+p.behind+" change has been trained.":
     "Also ready. One change at a time: "+p.behind+" is offered first.";
   else if(p.snoozed&&p.kind==="back")line=p.reason==="sore"?"Kept this target after the sore day. Too sore again will offer the step back again.":"Kept this target after the ache. Flag it again if it returns.";
@@ -1607,7 +1599,9 @@ function finish(){
   if(ready.length)toast("Next "+s.id+": suggestion ready for "+ready.join(", "));
 }
 
-/* ── edit ── */
+/* ── plan edits ──
+   No Edit tab: targets move through step ups and stage switches. editField remains as the
+   one programmatic way to change an exercise (used by the tests). */
 function editField(sid,exId,field,val){
   const s=S.plan.find(x=>x.id===sid); if(!s)return;
   const e=s.ex.find(x=>x.id===exId); if(!e)return;
@@ -1616,22 +1610,6 @@ function editField(sid,exId,field,val){
   if(field==="sets"||field==="reps")delete e.perSet; // a manual dose replaces step-up targets
   if((field==="wrist"||field==="trackBand")&&!val)delete e[field];
   save();
-}
-function delEx(sid,exId){
-  if(!confirm("Delete this exercise from the session?"))return;
-  const s=S.plan.find(x=>x.id===sid);
-  s.ex=s.ex.filter(x=>x.id!==exId); commit();
-}
-function moveEx(sid,exId,d){
-  const s=S.plan.find(x=>x.id===sid);
-  const i=s.ex.findIndex(x=>x.id===exId), j=i+d;
-  if(j<0||j>=s.ex.length)return;
-  const t=s.ex[i]; s.ex[i]=s.ex[j]; s.ex[j]=t; commit();
-}
-function addEx(sid){
-  const s=S.plan.find(x=>x.id===sid);
-  s.ex.push({id:"x"+Date.now(),n:"New exercise",tier:"accessory",sets:3,reps:8,unit:"reps",rest:90,note:""});
-  commit();
 }
 function resetPlan(){ switchPlan(); }
 
@@ -1964,14 +1942,13 @@ function render(){
      '<button class="alertbtn" onclick="cycleAlert()">alert: '+S.alert+'</button></div></div>';
 
   h+='<div class="tabs">'+
-     ['train','progress','edit','data'].map(t=>'<button class="tab'+(tab===t?" on":"")+'" onclick="go(\''+t+'\')">'+t+'</button>').join("")+
+     ['train','progress','data'].map(t=>'<button class="tab'+(tab===t?" on":"")+'" onclick="go(\''+t+'\')">'+t+'</button>').join("")+
      '</div>';
 
   if(storageBlocked)h+='<div class="note">Stored data could not be read. It has not been overwritten. Export or recover the original browser data before logging here.</div>';
   if(S.planVersion<PLAN_VERSION)h+='<div class="sec">Revised routine available</div><div class="note">OAHS practice on A/C/D, HSPU work on B, and cautious planche work on C/D. Your current plan stays until you switch. Switching saves its edits and unfinished log in Data and keeps your calendar, history and maxes.</div><button class="btn" onclick="resetPlan()">Use revised routine</button>';
   if(tab==="train")h+=viewTrain(ph);
   if(tab==="progress")h+=viewProgress();
-  if(tab==="edit")h+=viewEdit();
   if(tab==="data")h+=viewData();
 
   el.innerHTML=h;
@@ -2200,42 +2177,6 @@ function viewProgress(){
   return h;
 }
 
-function viewEdit(){
-  let h='<div class="lbl">Session to edit</div><div class="sessions">';
-  S.plan.forEach(p=>{
-    h+='<div class="sesswrap"><button class="sess'+(editSess===p.id?" on":"")+'" onclick="setEdit(\''+p.id+'\')">'+
-       '<span class="sessL">'+p.id+'</span><span class="sessN">'+esc(p.name)+'</span></button></div>';
-  });
-  h+='</div>';
-  const s=S.plan.find(x=>x.id===editSess)||S.plan[0];
-  h+='<div class="sec">'+esc(s.name)+'</div>';
-  s.ex.forEach(e=>{
-    h+='<div class="editEx">'+
-      '<div class="field"><label>Name</label><input value="'+esc(e.n)+'" onchange="editField(\''+s.id+'\',\''+e.id+'\',\'n\',this.value)"></div>'+
-      '<div class="field"><label>Sets</label><input type="number" step="1" inputmode="numeric" value="'+e.sets+'" onchange="editField(\''+s.id+'\',\''+e.id+'\',\'sets\',this.value)">'+
-      (e.amrap?'':'<label style="width:38px">Reps</label><input type="number" step="1" inputmode="numeric" value="'+e.reps+'" onchange="editField(\''+s.id+'\',\''+e.id+'\',\'reps\',this.value)">')+'</div>'+
-      '<div class="field"><label>Unit</label><select onchange="editField(\''+s.id+'\',\''+e.id+'\',\'unit\',this.value)">'+
-        ["reps","s","min"].map(u=>'<option value="'+u+'"'+(e.unit===u?" selected":"")+'>'+u+'</option>').join("")+'</select>'+
-      '<label style="width:38px">Rest</label><input type="number" step="1" inputmode="numeric" value="'+e.rest+'" onchange="editField(\''+s.id+'\',\''+e.id+'\',\'rest\',this.value)"></div>'+
-      '<div class="field"><label>Tier</label><select onchange="editField(\''+s.id+'\',\''+e.id+'\',\'tier\',this.value)">'+
-        ["prep","skill","main","accessory"].map(t=>'<option value="'+t+'"'+(e.tier===t?" selected":"")+'>'+t+'</option>').join("")+'</select></div>'+
-      '<div class="field"><label>Optional</label><input type="checkbox" '+(e.optional?'checked':'')+' onchange="editField(\''+s.id+'\',\''+e.id+'\',\'optional\',this.checked)"></div>'+
-      '<div class="field"><label>Track band</label><input type="checkbox" '+(e.trackBand?'checked':'')+' onchange="editField(\''+s.id+'\',\''+e.id+'\',\'trackBand\',this.checked)"><span class="note" style="margin:0;flex:1">Adds a band field to log which band each session</span></div>'+
-      '<div class="field"><label>Palms down</label><input type="checkbox" '+(e.wrist?'checked':'')+' onchange="editField(\''+s.id+'\',\''+e.id+'\',\'wrist\',this.checked)"><span class="note" style="margin:0;flex:1">Greyed out on a wrist break'+(typeof e.wrist==='string'?': '+esc(e.wrist):'')+'</span></div>'+
-      (altOf(e)?'<div class="note">Alternates each session: '+esc(e.alt.join(' / '))+'. Train shows which one is next.</div>':'')+
-      (validPerSet(e)?'<div class="note">Per-set targets from step ups: '+esc(fmtTargets(e.perSet,e))+'. Changing sets or reps replaces them.</div>':'')+
-      '<div class="field"><label>Progress</label><textarea onchange="editField(\''+s.id+'\',\''+e.id+'\',\'progression\',this.value)">'+esc(e.progression||'')+'</textarea></div>'+
-      '<div class="field"><label>Note</label><textarea onchange="editField(\''+s.id+'\',\''+e.id+'\',\'note\',this.value)">'+esc(e.note||"")+'</textarea></div>'+
-      '<div class="rowBtns"><button class="miniB" onclick="moveEx(\''+s.id+'\',\''+e.id+'\',-1)">↑</button>'+
-      '<button class="miniB" onclick="moveEx(\''+s.id+'\',\''+e.id+'\',1)">↓</button>'+
-      '<button class="miniB danger" onclick="delEx(\''+s.id+'\',\''+e.id+'\')">delete</button></div></div>';
-  });
-  h+='<div class="acts"><button class="btn" onclick="addEx(\''+s.id+'\')">Add exercise</button>'+
-     '<button class="btn ghost" onclick="resetPlan()">Use revised defaults</button></div>';
-  h+='<div class="note">Targets stay stable across calendar weeks. For a lighter day, turn on Light session in Train; it lasts for that workout only. Exercises with a ladder offer step ups in Train after clean sessions; nothing changes until you accept. Their progress text here is for reference; Train shows it only for exercises without a ladder. Tier never adds work automatically. Rest is in seconds. Using revised defaults archives your current plan and unfinished log in Data.</div>';
-  return h;
-}
-
 function viewData(){
   const canShare=!!navigator.share;
   return '<div class="sec">Saved plans</div><div class="note">Switching plans keeps history and maxes. Restore brings back that plan, its unfinished log and rotation; your calendar and target mode stay unchanged. Your current plan and draft are archived in turn. Export includes these saved plans.</div>'+
@@ -2262,7 +2203,6 @@ function viewData(){
     '<div class="sec">Danger</div>'+
     '<div class="acts"><button class="btn ghost danger" onclick="wipe()" style="flex:1;border-color:#b5563a;color:#b5563a">Erase everything</button></div>';
 }
-function setEdit(id){ editSess=id; render(); }
 
 /* ── boot ── */
 load();

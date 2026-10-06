@@ -101,7 +101,7 @@ test('milestones at the top can be acknowledged or reset to the planned restart'
  assert.equal(steps(a,'C').c3.kind,'top');assert.equal(a.run('S.progress.log[0].kind'),'milestone');assert.equal(ex(a,'C','c3').reps,6);
 });
 test('custom exercises, changed units, older routines and benchmarks get no ladder',()=>{
- const a=boot();a.run(`addEx('B')`);const id=a.run(`S.plan[1].ex.at(-1).id`);
+ const a=boot();a.run(`S.plan[1].ex.push({id:"x"+Date.now(),n:"New exercise",tier:"accessory",sets:3,reps:8,unit:"reps",rest:90,note:""})`);const id=a.run(`S.plan[1].ex.at(-1).id`);
  assert.equal(a.json(`ladderFor(S.plan[1].ex.at(-1))`),null,id);
  a.run(`editField('B','b11push','unit','s')`);assert.equal(a.json(`ladderFor(S.plan[1].ex.find(e=>e.id==='b11push'))`),null);
  a.run(`editField('B','b11push','unit','reps');editField('B','b11push','n','Diamond push ups')`);assert.ok(a.json(`ladderFor(S.plan[1].ex.find(e=>e.id==='b11push'))`),'renames keep the ladder');
@@ -135,8 +135,8 @@ test('every view renders with suggestions, check-in and step log present',()=>{
  const a=boot();train(a,'B',['b3','b11push'],'clean');a.run(`S.today.sid='B';S.today.maxTest=false;stepAction('b3','accept');logSet('b3',0,2);setFeel('grindy')`);
  const html=a.run('viewTrain(phase())');assert.ok(html.includes('How did it go?'));assert.ok(html.includes(`toggleFeelEx('b3')`));
  const prog=a.run('viewProgress()');assert.ok(prog.includes('Step ups and milestones'));assert.ok(prog.includes('5 × 1 → 1×2 + 4×1'));
- assert.ok(a.run(`editSess='B';viewEdit()`).includes('Per-set targets from step ups: 1×2 + 4×1'));
- for(const t of ['train','progress','edit','data'])a.run(`go('${t}')`);
+ assert.ok(!a.run('render();document.getElementById("app").innerHTML').includes("go('edit')"),'no Edit tab');
+ for(const t of ['train','progress','data'])a.run(`go('${t}')`);
 });
 test('lever on A and C and external rotations on B and D share one ladder each',()=>{
  const a=boot();
@@ -257,7 +257,6 @@ test('C pull ups alternate grip, recorded per session and counted by the ladder 
  assert.ok(!view().includes('This session: ')||!/a8[^]*This session/.test(view().split('Pull ups')[0]),'only the alternating exercise shows it');
  assert.match(a.run('coachSummary()'),/Pull ups \(underhand\): 5,5,5,5/);
  a.run('openHist=0');assert.match(a.run('viewHistory()'),/Pull ups<\/span> · 5, 5, 5, 5 · underhand/);
- assert.match(a.run(`editSess='C';viewEdit()`),/Alternates each session: Overhand \/ Underhand/);
  assert.match(a.run(`bfSid='C';viewBfExercises('C',1)`),/Records: Overhand/);
  a.run(`bfSid='C';bfDate='2026-09-24';bfLog={c3:[5,5,5,5]};addPast()`);assert.equal(a.run(`S.history.find(r=>r.manual).detail[0].variant`),'Overhand');
 });
@@ -306,7 +305,7 @@ test('the planche milestone walks tuck, flat tuck, advanced tuck and band-assist
  a.run(`setTodayBand('d12tuck','red');[0,1,2,3].forEach(i=>logSet('d12tuck',i,3));finish()`);assert.equal(a.run(`S.history[0].detail.find(x=>x.id==='d12tuck').band`),'red');
  p=top();assert.equal(p.kind,'milestone');assert.equal(p.swap,undefined,'end of the chain');
  assert.deepEqual(a.json('S.progress.log.filter(x=>x.kind==="swap").map(x=>x.n).reverse()'),['Tuck planche → Flat tuck planche','Flat tuck planche → Advanced tuck planche','Advanced tuck planche → Band-assisted straddle planche']);
- a.run(`editField('D','d12tuck','trackBand',false)`);assert.equal(pl().trackBand,undefined);assert.ok(a.run(`editSess='D';viewEdit()`).includes('<label>Track band</label>'));
+ a.run(`editField('D','d12tuck','trackBand',false)`);assert.equal(pl().trackBand,undefined);
  a.run(`editField('D','d12tuck','trackBand',true)`);assert.equal(pl().trackBand,true);
 });
 test('the lever milestone stages both A and C together; ring support stages to rings turned out',()=>{
