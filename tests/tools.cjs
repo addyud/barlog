@@ -38,12 +38,18 @@ test('backup reminder counts sessions and days since the last backup',()=>{
  a.run('markBackup()');for(let i=0;i<7;i++)train(a,'C',['c3']);assert.equal(a.json('backupDue()').due,false);
  train(a,'C',['c3']);assert.equal(a.json('backupDue()').due,true,'eight sessions');
 });
-test('only a completed share or copy counts as a backup',()=>{
- const a=boot();a.set('File',class{constructor(p,n){this.name=n}});
- a.set('navigator',{share:()=>failed({name:'AbortError'}),canShare:()=>true});a.run('shareData()');assert.equal(a.run('S.backup'),undefined,'cancelled share');
+test('backups share as a plain-text file; a refused share saves the file instead',()=>{
+ const a=boot();a.set('File',class{constructor(p,n,o){this.name=n;this.type=o&&o.type}});
+ let shared=null,downloads=0;a.set('URL',{createObjectURL:()=>'blob:x',revokeObjectURL(){}});a.set('Blob',class{});
+ a.run(`document.createElement=()=>({style:{},remove(){},click(){globalThis.dl=(globalThis.dl||0)+1}})`);
+ a.set('navigator',{share:o=>{shared=o;return failed({name:'AbortError'})},canShare:o=>o.files[0].type==='text/plain'&&/\.txt$/.test(o.files[0].name)});
+ a.run('shareData()');assert.equal(shared.files[0].name,'barlog-2026-09-25.txt');assert.equal(a.run('S.backup'),undefined,'cancelled share');assert.equal(a.run('globalThis.dl')||0,0,'cancelling does not download');
  a.set('navigator',{share:()=>done(),canShare:()=>true});a.run('shareData()');assert.equal(a.run('S.backup.date'),'2026-09-25');
+ a.set('navigator',{share:()=>failed(new TypeError('Permission denied')),canShare:()=>true});a.run('shareData()');assert.equal(a.run('globalThis.dl'),1,'a refused share downloads the file');
+ a.set('navigator',{share:()=>done(),canShare:()=>false});a.run('shareData()');assert.equal(a.run('globalThis.dl'),2,'no file sharing downloads too');
  const b=boot();b.set('navigator',{clipboard:{writeText:()=>done()}});b.run('copyData()');assert.equal(b.run('S.backup.count'),0);
  assert.ok(b.run(`go('data');document.getElementById('app').innerHTML`).includes('Last backup today'));
+ b.set('backupText',b.run('snapshot()'));b.run('wipe();applyBackup(backupText)');assert.equal(b.run('S.backup.count'),0,'the shared text restores like a .json backup');
 });
 test('install offers the browser prompt when available and hides once installed',()=>{
  const a=boot();
