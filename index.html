@@ -359,6 +359,7 @@ const DEFAULT_PLAN = [
         "reps": 5,
         "unit": "reps",
         "rest": 120,
+        "alt": ["Overhand", "Underhand"],
         "note": "Leave 1–2 reps in reserve. Rest 2 min or more.",
         "progression": "After two clean sessions, add a rep to one set. Work toward 4 × 6."
       },
@@ -803,6 +804,11 @@ function updateDipsCopy(plan){
   const e=plan.find(p=>p.id==="B")?.ex.find(e=>e.id==="b10dips");
   if(e&&e.progression===DIPS_PROGRESS_BEFORE)e.progression=DEFAULT_PLAN.find(p=>p.id==="B").ex.find(e=>e.id==="b10dips").progression;
 }
+// C pull ups alternate grip. Added once to a saved plan whose pull ups are still the default.
+function addGripAlternation(plan){
+  const e=plan.find(p=>p.id==="C")?.ex.find(e=>e.id==="c3");
+  if(e&&e.n==="Pull ups"&&e.unit==="reps"&&!e.alt)e.alt=["Overhand","Underhand"];
+}
 // One-time repairs for saved plans, applied in order. Each stores its key once it has run,
 // so later deliberate edits stick. v4Only patches leave older, unadopted routines alone.
 const PLAN_PATCHES=[
@@ -814,6 +820,7 @@ const PLAN_PATCHES=[
   {key:"calendarCopyVersion",v4Only:false,apply:updateCalendarCopy},
   {key:"benchmarkEntryVersion",v4Only:false,apply:updateBenchmarkEntryCopy},
   {key:"dipsCopyVersion",v4Only:true,apply:updateDipsCopy},
+  {key:"gripAlternationVersion",v4Only:true,apply:addGripAlternation},
 ];
 function patchFlags(value){ return Object.fromEntries(PLAN_PATCHES.map(p=>[p.key,value(p.key)])); }
 // `saved` is the stored record (state, backup or archive) whose flags say what already ran.
@@ -1231,7 +1238,7 @@ function coachSummary(weeks=6){
     L.push(r.date+" "+r.sid+(r.targetMode==="reduced"?" light session":"")+(r.manual?" (logged later)":"")+feel);
     (r.detail||[]).filter(x=>x.unit!=="min").forEach(x=>{
       const missed=Array.isArray(x.target)&&!metTarget(x);
-      L.push("  "+x.n+": "+x.sets.join(",")+(x.unit==="reps"?"":x.unit)+(missed?" (target "+x.target.join(",")+")":"")+(x.band?" band "+x.band:""));
+      L.push("  "+x.n+(x.variant?" ("+x.variant.toLowerCase()+")":"")+": "+x.sets.join(",")+(x.unit==="reps"?"":x.unit)+(missed?" (target "+x.target.join(",")+")":"")+(x.band?" band "+x.band:""));
     });
     if(r.note)L.push("  Note: "+r.note);
   });
@@ -1433,6 +1440,7 @@ function finish(){
     const sum=vals.reduce((a,b)=>a+b,0);
     if(e.unit==="reps")reps+=sum; else if(e.unit==="s")secs+=sum;
     const item={id:e.id,n:e.n,unit:e.unit,sets:vals};
+    const variant=nextVariant(s.id,e); if(variant)item.variant=variant;
     if(!e.amrap)item.target=fullTargets(e);
     const band=S.today.band&&S.today.band[e.id]&&S.today.band[e.id].trim();
     if(band)item.band=band;
@@ -1496,7 +1504,8 @@ function buildBfDetail(sid){
   plan.ex.forEach(e=>{
     const vals=(bfLog[e.id]||[]).filter(v=>typeof v==="number");
     if(!vals.length)return;
-    detail.push({id:e.id,n:e.n,unit:e.unit,sets:vals,...(e.amrap?{}:{target:fullTargets(e)})});
+    const variant=nextVariant(sid,e);
+    detail.push({id:e.id,n:e.n,unit:e.unit,sets:vals,...(e.amrap?{}:{target:fullTargets(e)}),...(variant?{variant}:{})});
   });
   return detail;
 }
@@ -1578,6 +1587,7 @@ function viewBfExercises(sid,wk){
     const done=log.filter(v=>v!=null).length;
     h+='<div class="bfEx"><div class="exTop"><div class="bfExN">'+esc(e.n)+(e.optional?' · optional':'')+'</div><div class="bfExT">'+
        (e.amrap?"record actual":e.budget?tgt+"min total incl. rest":fmtTargets(tg,e))+'</div></div>';
+    const variant=nextVariant(sid,e); if(variant)h+='<div class="exLoad">Records: '+esc(variant)+'</div>';
     h+='<div class="chips">';
     for(let i=0;i<Math.max(cnt,log.length);i++){
       if(i>=cnt&&log[i]==null)continue; // Keep completed values visible when reduced targets hide unlogged sets.
@@ -1836,12 +1846,22 @@ function lastExposures(sid,e,max){
   }
   return out;
 }
+// Alternating variants (for example grip). The next one follows whatever the last session
+// of this exercise recorded; a session logged before variants existed counts as the first.
+const altOf=e=>Array.isArray(e.alt)&&e.alt.length>1&&e.alt.every(v=>typeof v==="string"&&v)?e.alt:null;
+function nextVariant(sid,e){
+  const alt=altOf(e); if(!alt)return null;
+  const last=lastExposures(sid,e,1)[0]; if(!last)return alt[0];
+  const i=alt.indexOf(last.x.variant);
+  return alt[((i<0?0:i)+1)%alt.length];
+}
 function viewLast(sid,e){
   if(e.tier==="prep")return "";
   const seen=lastExposures(sid,e,2);
   if(!seen.length)return "";
   return '<div class="exLast">'+seen.map(({date,x},i)=>
     '<div><span>'+(i?"Before":"Last")+' '+esc(shortD(date))+'</span> '+esc(x.sets.join(", "))+esc(x.unit==="reps"?"":x.unit)+
+    (x.variant?' <span>· '+esc(x.variant.toLowerCase())+'</span>':'')+
     (x.band?' <span>· band '+esc(x.band)+'</span>':'')+'</div>').join("")+'</div>';
 }
 
@@ -1879,6 +1899,8 @@ function viewTrain(ph){
     const done=log.filter(v=>v!=null).length;
     h+='<div class="ex"><div class="exTop"><div class="exN">'+esc(e.n)+(e.optional?' · optional':'')+'</div><div class="exT">'+
        (e.amrap?"record actual":e.budget?tgt+"min total incl. rest":fmtTargets(tg,e))+(e.rest?" · "+mmss(e.rest)+" rest":"")+'</div></div>';
+    const variant=nextVariant(s.id,e);
+    if(variant)h+='<div class="exLoad">This session: '+esc(variant)+'</div>';
     h+=viewLast(s.id,e);
     h+=viewStep(s,e,steps[e.id],done>0);
     if(e.note)h+='<div class="exNote">'+esc(e.note)+'</div>';
@@ -1939,7 +1961,7 @@ function viewHistory(){
       if(r.rice)h+='<div style="font-size:11px;color:var(--sodium);padding:0 0 8px">Rice bag ✓</div>';
       if(hasD)r.detail.forEach(x=>{
         h+='<div style="font-size:12px;color:var(--galv);padding:3px 0"><span style="color:var(--chalk)">'+esc(x.n)+'</span> · '+
-           esc(x.sets.join(", "))+(x.unit==="reps"?"":esc(x.unit))+(x.band?" · band "+esc(x.band):"")+'</div>';
+           esc(x.sets.join(", "))+(x.unit==="reps"?"":esc(x.unit))+(x.variant?" · "+esc(x.variant.toLowerCase()):"")+(x.band?" · band "+esc(x.band):"")+'</div>';
       });
       if(!hasD&&!r.note&&!r.rice)h+='<div style="font-size:12px;color:var(--galv)">No exercise detail logged.</div>';
       h+='<div class="field"><label>Date</label>'+
@@ -2048,6 +2070,7 @@ function viewEdit(){
       '<div class="field"><label>Tier</label><select onchange="editField(\''+s.id+'\',\''+e.id+'\',\'tier\',this.value)">'+
         ["prep","skill","main","accessory"].map(t=>'<option value="'+t+'"'+(e.tier===t?" selected":"")+'>'+t+'</option>').join("")+'</select></div>'+
       '<div class="field"><label>Optional</label><input type="checkbox" '+(e.optional?'checked':'')+' onchange="editField(\''+s.id+'\',\''+e.id+'\',\'optional\',this.checked)"></div>'+
+      (altOf(e)?'<div class="note">Alternates each session: '+esc(e.alt.join(' / '))+'. Train shows which one is next.</div>':'')+
       (validPerSet(e)?'<div class="note">Per-set targets from step ups: '+esc(fmtTargets(e.perSet,e))+'. Changing sets or reps replaces them.</div>':'')+
       '<div class="field"><label>Progress</label><textarea onchange="editField(\''+s.id+'\',\''+e.id+'\',\'progression\',this.value)">'+esc(e.progression||'')+'</textarea></div>'+
       '<div class="field"><label>Note</label><textarea onchange="editField(\''+s.id+'\',\''+e.id+'\',\'note\',this.value)">'+esc(e.note||"")+'</textarea></div>'+

@@ -244,4 +244,32 @@ test('soreness asks about the latest session once four hours have passed, even a
  assert.ok(b.run('S.history[0].finishedAt'));assert.equal(b.run('viewReadiness()'),'');
  b.run(`bfSid='C';bfDate='2026-09-29';bfLog={c3:[5,5,5,5]};addPast()`);assert.equal(b.run('S.history[0].finishedAt'),undefined,'earlier backfills carry no time');
 });
+test('C pull ups alternate grip, recorded per session and counted by the ladder either way',()=>{
+ const a=boot();
+ assert.deepEqual(a.json(`DEFAULT_PLAN[2].ex.find(e=>e.id==='c3').alt`),['Overhand','Underhand']);
+ const view=()=>a.run(`S.today.sid='C';viewTrain(phase())`);
+ assert.match(view(),/This session: Overhand/,'fresh install starts overhand');
+ train(a,'C',['c3'],'clean');assert.equal(a.run('S.history[0].detail[0].variant'),'Overhand');
+ assert.match(view(),/This session: Underhand/);assert.match(view(),/Last 25\/09<\/span> 5, 5, 5, 5 <span>· overhand/);
+ train(a,'C',['c3'],'clean');assert.equal(a.run('S.history[0].detail[0].variant'),'Underhand');
+ assert.match(view(),/This session: Overhand/);
+ assert.equal(steps(a,'C').c3.kind,'up','both grips count toward the step');
+ assert.ok(!view().includes('This session: ')||!/a8[^]*This session/.test(view().split('Pull ups')[0]),'only the alternating exercise shows it');
+ assert.match(a.run('coachSummary()'),/Pull ups \(underhand\): 5,5,5,5/);
+ a.run('openHist=0');assert.match(a.run('viewHistory()'),/Pull ups<\/span> · 5, 5, 5, 5 · underhand/);
+ assert.match(a.run(`editSess='C';viewEdit()`),/Alternates each session: Overhand \/ Underhand/);
+ assert.match(a.run(`bfSid='C';viewBfExercises('C',1)`),/Records: Overhand/);
+ a.run(`bfSid='C';bfDate='2026-09-24';bfLog={c3:[5,5,5,5]};addPast()`);assert.equal(a.run(`S.history.find(r=>r.manual).detail[0].variant`),'Overhand');
+});
+test('grip alternation is added once to saved default pull ups and treats older sessions as overhand',()=>{
+ const a=boot();const saved=a.json('S');delete saved.gripAlternationVersion;delete saved.plan[2].ex.find(e=>e.id==='c3').alt;
+ saved.history=[{date:'2026-09-21',sid:'C',detail:[{id:'c3',n:'Pull ups',unit:'reps',sets:[5,4,5,5]}]}];
+ const b=boot(saved);assert.deepEqual(b.json(`S.plan[2].ex.find(e=>e.id==='c3').alt`),['Overhand','Underhand']);assert.equal(b.run('S.gripAlternationVersion'),1);
+ assert.match(b.run(`S.today.sid='C';viewTrain(phase())`),/This session: Underhand/,'an unlabelled earlier session counts as overhand');
+ const own=a.json('S');delete own.gripAlternationVersion;const c3=own.plan[2].ex.find(e=>e.id==='c3');delete c3.alt;c3.n='Weighted pull ups';
+ assert.equal(boot(own).run(`S.plan[2].ex.find(e=>e.id==='c3').alt`),undefined,'renamed exercise untouched');
+ const later=b.json('S');delete later.plan[2].ex.find(e=>e.id==='c3').alt;
+ assert.equal(boot(later).run(`S.plan[2].ex.find(e=>e.id==='c3').alt`),undefined,'a deliberate removal sticks');
+ const bad=a.json('S');bad.plan[2].ex.find(e=>e.id==='c3').alt=['Only one'];assert.equal(boot(bad).run(`nextVariant('C',S.plan[2].ex.find(e=>e.id==='c3'))`),null);
+});
 console.log(`${passed} progression groups passed.`);
