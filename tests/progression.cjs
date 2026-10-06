@@ -123,14 +123,6 @@ test('progress and per-set targets survive reload and backup; legacy saves gain 
  const legacy=a.json('S');delete legacy.progress;const c=boot(legacy);assert.deepEqual(c.json('S.progress'),{log:[],pending:{},snooze:{},acks:{},reducedSnooze:'',readyDate:'',readySkip:''});
  const bad=a.json('S');bad.plan[1].ex.find(e=>e.id==='b3').perSet=[2,1];assert.deepEqual(boot(bad).json(`fullTargets(S.plan[1].ex.find(e=>e.id==='b3'))`),[2,2,2,2,2]);
 });
-test('rated backfills count; they clear a pending change only when on or after it',()=>{
- const a=boot('', '2026-09-25T12:00:00');
- a.run(`bfSid='B';bfDate='2026-09-24';bfLog={b11push:[10,10,10]};bfSet('feel','clean');addPast()`);
- assert.equal(a.run('S.history[0].feel'),'clean');assert.deepEqual(a.json('S.history[0].detail[0].target'),[10,10,10]);
- assert.equal(steps(a,'B').b11push.kind,'up');a.run(`S.today.sid='B';S.today.maxTest=false;stepAction('b11push','accept')`);
- a.run(`bfSid='B';bfDate='2026-09-20';bfLog={b3:[1]};addPast()`);assert.equal(a.run('S.progress.pending.B.id'),'b11push');
- a.run(`bfSid='B';bfDate='2026-09-25';bfLog={b3:[1]};addPast()`);assert.equal(a.run('S.progress.pending.B'),undefined);
-});
 test('every view renders with suggestions, check-in and step log present',()=>{
  const a=boot();train(a,'B',['b3','b11push'],'clean');a.run(`S.today.sid='B';S.today.maxTest=false;stepAction('b3','accept');logSet('b3',0,2);setFeel('grindy')`);
  const html=a.run('viewTrain(phase())');assert.ok(html.includes('How did it go?'));assert.ok(html.includes(`toggleFeelEx('b3')`));
@@ -239,10 +231,6 @@ test('soreness asks about the latest session once four hours have passed, even a
  // A session saved before finish times existed qualifies by date, even when dated today.
  const legacy=a.json('S');delete legacy.history[0].finishedAt;delete legacy.history[0].soreness;legacy.progress.readyDate='';
  assert.match(boot(legacy,'2026-09-30T05:07:00').run('viewReadiness()'),/Logged against A on 30\/09/);
- // A same-day backfill counts as just finished.
- const b=boot(null,'2026-09-30T20:00:00');b.run(`bfSid='C';bfDate='2026-09-30';bfLog={c3:[5,5,5,5]};addPast()`);
- assert.ok(b.run('S.history[0].finishedAt'));assert.equal(b.run('viewReadiness()'),'');
- b.run(`bfSid='C';bfDate='2026-09-29';bfLog={c3:[5,5,5,5]};addPast()`);assert.equal(b.run('S.history[0].finishedAt'),undefined,'earlier backfills carry no time');
 });
 test('C pull ups alternate grip, recorded per session and counted by the ladder either way',()=>{
  const a=boot();
@@ -257,8 +245,6 @@ test('C pull ups alternate grip, recorded per session and counted by the ladder 
  assert.ok(!view().includes('This session: ')||!/a8[^]*This session/.test(view().split('Pull ups')[0]),'only the alternating exercise shows it');
  assert.match(a.run('coachSummary()'),/Pull ups \(underhand\): 5,5,5,5/);
  a.run('openHist=0');assert.match(a.run('viewHistory()'),/Pull ups<\/span> · 5, 5, 5, 5 · underhand/);
- assert.match(a.run(`bfSid='C';viewBfExercises('C',1)`),/Records: Overhand/);
- a.run(`bfSid='C';bfDate='2026-09-24';bfLog={c3:[5,5,5,5]};addPast()`);assert.equal(a.run(`S.history.find(r=>r.manual).detail[0].variant`),'Overhand');
 });
 test('grip alternation is added once to saved default pull ups and treats older sessions as overhand',()=>{
  const a=boot();const saved=a.json('S');delete saved.gripAlternationVersion;delete saved.plan[2].ex.find(e=>e.id==='c3').alt;

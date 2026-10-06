@@ -141,14 +141,6 @@ button{font-family:inherit}
 .miniB.danger{border-color:var(--rust);color:var(--rust)}
 .empty{color:var(--galv);font-size:13px;padding:22px 0;line-height:1.6}
 textarea.dump{width:100%;height:150px;background:var(--steel);border:1px solid var(--steel-hi);border-radius:3px;color:var(--chalk);padding:10px;font-family:var(--mono);font-size:11px;margin-top:10px}
-.bfBlock{margin-top:14px;padding:12px 13px;background:var(--steel);border-radius:3px;border:1px solid var(--steel-hi)}
-.bfEx{padding:11px 0;border-bottom:1px solid var(--steel-hi)}
-.bfEx:last-child{border-bottom:none;padding-bottom:0}
-.bfEx .chips{margin-top:8px}
-.bfExN{font-size:13px;color:var(--chalk);line-height:1.3}
-.bfExT{font-family:var(--mono);font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:var(--galv);margin-top:3px}
-.bfSub{font-family:var(--mono);font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--galv);margin:14px 0 8px;display:flex;align-items:center;justify-content:space-between;gap:8px}
-.bfTotals{font-family:var(--mono);font-size:11px;color:var(--sodium);margin-top:10px;padding-top:10px;border-top:1px solid var(--steel-hi);line-height:1.5}
 </style>
 </head>
 <body>
@@ -771,9 +763,7 @@ function viewCalendar(){
 }
 
 /* ── state ── */
-let S=null, tab="train", timer=null, tick=null, ac=null, openHist=-1, bfSid="A", bfLog={};
-/* Keep backfill fields across chip taps, date changes and re-renders. */
-let bfDate=null, bfReps="", bfSecs="", bfNote="", bfRice=false, bfTargetMode="normal", bfFeel="";
+let S=null, tab="train", timer=null, tick=null, ac=null, openHist=-1;
 let openPr=null, pendingSession=null;
 /* manual-max form fields, kept across re-renders like the backfill form */
 let mxLift="pullup", mxVal="", mxDate=null;
@@ -800,16 +790,6 @@ function historyWindow(){
     historyMode==="recent"?5:(historyPage+1)*HISTORY_PAGE_SIZE),total:rows.length,pages};
 }
 function expandHist(i){ openHist=openHist===i?-1:i; render(); }
-function setBfSess(id){ bfSid=id; bfLog={}; render(); }
-const bfDay=()=>bfDate||dayKey();
-function bfSet(k,v){ ({date:()=>{bfDate=v;render();},reps:()=>bfReps=v,secs:()=>bfSecs=v,
-  note:()=>bfNote=v,rice:()=>bfRice=v,feel:()=>bfFeel=FEELS[v]?v:""})[k](); }
-function bfResetForm(){ bfDate=null; bfReps=""; bfSecs=""; bfNote=""; bfRice=false; bfTargetMode="normal"; bfFeel=""; }
-function setBfTargets(v){ if(["normal","reduced"].includes(v))bfTargetMode=v;render(); }
-function bfClearLog(){ bfLog={}; render(); }
-function bfPlan(){ return S.plan.find(p=>p.id===bfSid); }
-function bfEx(exId){ const p=bfPlan(); return p&&p.ex.find(x=>x.id===exId); }
-
 function blank(){return{
   planVersion:PLAN_VERSION, ...patchFlags(()=>1), reducedWeek4:true,
   week:1, rot:0, alert:"vibrate",
@@ -965,8 +945,7 @@ function switchPlan(archivedIndex){
   S.today=archived?JSON.parse(JSON.stringify(archived.today)):
     {date:dayKey(),sid:nextId(),log:{},band:{},rice:false};
   if(!save()){ S=previous; render(); return; }
-  stopTimer(); bfLog={}; bfResetForm();
-  bfSid=S.today.sid; tab="train"; render();
+  stopTimer(); tab="train"; render();
   toast("Plan switched. Previous plan and unfinished log saved in Data.");
 }
 function restorePlan(i){ switchPlan(i); }
@@ -1514,26 +1493,20 @@ function drawTimer(){
 
 /* ── logging ── */
 // Benchmark entries are measured results, never preset targets.
-function benchmarkField(e,idx,value,past){
-  const id=(past?'past-':'today-')+e.id+'-'+idx;
+function benchmarkField(e,idx,value){
+  const id='today-'+e.id+'-'+idx;
   return '<div class="field"><label for="'+esc(id)+'">'+(e.unit==='reps'?'Reps':'Seconds')+'</label>'+
-    '<input id="'+esc(id)+'" aria-label="'+esc(e.n)+' result '+(idx+1)+'" type="number" min="0" step="'+(e.unit==='reps'?'1':'any')+'" inputmode="'+(e.unit==='reps'?'numeric':'decimal')+'" placeholder="Your result" value="'+(value==null?'':value)+'" oninput="recordBenchmark(\''+e.id+'\','+idx+',this.value,'+past+')"></div>';
+    '<input id="'+esc(id)+'" aria-label="'+esc(e.n)+' result '+(idx+1)+'" type="number" min="0" step="'+(e.unit==='reps'?'1':'any')+'" inputmode="'+(e.unit==='reps'?'numeric':'decimal')+'" placeholder="Your result" value="'+(value==null?'':value)+'" oninput="recordBenchmark(\''+e.id+'\','+idx+',this.value)"></div>';
 }
-function recordBenchmark(exId,idx,raw,past){
-  const plan=past?S.plan.find(p=>p.id===bfSid):sess();
-  const e=plan&&(past?plan.ex:todayExercises(plan)).find(e=>e.id===exId);if(!e||!e.amrap)return;
+function recordBenchmark(exId,idx,raw){
+  const e=todayExercises(sess()).find(e=>e.id===exId);if(!e||!e.amrap)return;
   const n=Number(raw), valid=raw.trim()!==''&&Number.isFinite(n)&&n>=0&&(e.unit!=='reps'||Number.isInteger(n));
-  const log=past?bfLog:S.today.log, previous=JSON.parse(JSON.stringify(log));
-  if(!past)refreshDraftDate();
-  const arr=(log[exId]||[]).slice();arr[idx]=valid?n:null;log[exId]=arr;
-  if(!past){
-    if(!save()){S.today.log=previous;render();return;}
-    const finishButton=document.getElementById('finishSession');
-    if(finishButton)finishButton.disabled=!sess().ex.some(e=>(S.today.log[e.id]||[]).some(v=>v!=null));
-  }else{
-    const totals=document.getElementById('bfTotals');
-    if(totals){const t=sumDetail(buildBfDetail(bfSid));totals.textContent=t.reps+' reps · '+t.secs+'s';}
-  }
+  const previous=JSON.parse(JSON.stringify(S.today.log));
+  refreshDraftDate();
+  const arr=(S.today.log[exId]||[]).slice();arr[idx]=valid?n:null;S.today.log[exId]=arr;
+  if(!save()){S.today.log=previous;render();return;}
+  const finishButton=document.getElementById('finishSession');
+  if(finishButton)finishButton.disabled=!todayExercises(sess()).some(e=>(S.today.log[e.id]||[]).some(v=>v!=null));
 }
 function logSet(exId,idx,target){
   refreshDraftDate();
@@ -1630,107 +1603,6 @@ function editField(sid,exId,field,val){
 function resetPlan(){ switchPlan(); }
 
 /* ── backfill ── */
-function sumDetail(detail){
-  let reps=0, secs=0;
-  detail.forEach(x=>{
-    const sum=x.sets.reduce((a,b)=>a+b,0);
-    if(x.unit==="reps")reps+=sum; else if(x.unit==="s")secs+=sum;
-  });
-  return{reps,secs};
-}
-function buildBfDetail(sid){
-  const plan=S.plan.find(p=>p.id===sid); if(!plan)return[];
-  const detail=[];
-  plan.ex.forEach(e=>{
-    const vals=(bfLog[e.id]||[]).filter(v=>typeof v==="number");
-    if(!vals.length)return;
-    const variant=nextVariant(sid,e);
-    detail.push({id:e.id,n:e.n,unit:e.unit,sets:vals,...(e.amrap?{}:{target:fullTargets(e)}),...(variant?{variant}:{})});
-  });
-  return detail;
-}
-function bfLogSet(exId,idx,target){
-  const arr=(bfLog[exId]||[]).slice();
-  if(arr[idx]==null){ arr[idx]=target; bfLog[exId]=arr; render(); }
-  else{ arr[idx]=null; bfLog[exId]=arr; render(); }
-}
-function bfNudge(exId,d){
-  const e=bfEx(exId); if(!e)return;
-  const arr=(bfLog[exId]||[]).slice();
-  let last=-1; arr.forEach((v,i)=>{ if(v!=null)last=i; });
-  if(last<0)return;
-  arr[last]=Math.max(0,arr[last]+d);
-  bfLog[exId]=arr; render();
-}
-function addPast(){
-  const d=bfDay();
-  const sid=bfSid;
-  const wk=calendarWeek(d);
-  const note=bfNote.trim();
-  const rice=bfRice;
-  if(dateNumber(d)==null||d>dayKey()){ alert("Pick a valid workout date no later than today."); return; }
-  const plan=S.plan.find(p=>p.id===sid);
-  const detail=buildBfDetail(sid);
-  let reps=0, secs=0;
-  if(detail.length){
-    const t=sumDetail(detail); reps=t.reps; secs=t.secs;
-    plan.ex.forEach(e=>{
-      if(!e.pr)return;
-      const vals=(bfLog[e.id]||[]).filter(v=>typeof v==="number");
-      if(!vals.length)return;
-      S.prs[e.pr]=(S.prs[e.pr]||[]).concat([{date:d,value:Math.max.apply(null,vals)}]);
-      S.prs[e.pr].sort((a,b)=>a.date<b.date?-1:a.date>b.date?1:0);
-    });
-  }else{
-    reps=parseInt(bfReps,10);
-    secs=parseInt(bfSecs,10);
-    if(isNaN(reps))reps=0; if(isNaN(secs))secs=0;
-    if(!reps&&!secs){ alert("Log at least one exercise, or enter rep/sec totals."); return; }
-  }
-  const entry={date:d,sid:sid,week:wk,weekSource:"calendar",targetMode:bfTargetMode,reps:reps,secs:secs,manual:true};
-  if(d===dayKey())entry.finishedAt=new Date().toISOString(); // a same-day backfill is treated as just finished
-  if(detail.length)entry.detail=detail;
-  if(note)entry.note=note;
-  if(rice)entry.rice=true;
-  if(detail.length&&bfFeel)entry.feel=bfFeel;
-  S.history.unshift(entry);
-  // A backfilled session trains a pending change only if it happened on or after that change.
-  if(S.progress.pending[sid]&&d>=S.progress.pending[sid].date)delete S.progress.pending[sid];
-  openHist=-1;
-  syncNext();
-  bfSid=sid; bfLog={}; bfResetForm();
-  commit();
-  toast("Logged "+sid+" \u00b7 next up "+nextId());
-}
-function viewBfExercises(sid,wk){
-  const plan=S.plan.find(p=>p.id===sid); if(!plan)return"";
-  let h='<div class="bfSub"><span>Exercise log</span><button class="miniB" onclick="bfClearLog()">clear</button></div>'+
-     '<div class="note" style="margin-top:0;margin-bottom:10px">Enter actual benchmark results. For other exercises, tap a chip to log at target; tap again to clear.</div><div class="bfBlock">';
-  plan.ex.forEach(e=>{
-    const tg=setTargets(e,wk,bfTargetMode), cnt=tg.length, tgt=repsFor(e,wk,bfTargetMode), log=bfLog[e.id]||[];
-    const done=log.filter(v=>v!=null).length;
-    h+='<div class="bfEx"><div class="exTop"><div class="bfExN">'+esc(e.n)+(e.optional?' · optional':'')+'</div><div class="bfExT">'+
-       (e.amrap?"record actual":e.budget?tgt+"min total incl. rest":fmtTargets(tg,e))+'</div></div>';
-    const variant=nextVariant(sid,e); if(variant)h+='<div class="exLoad">Records: '+esc(variant)+'</div>';
-    h+='<div class="chips">';
-    for(let i=0;i<Math.max(cnt,log.length);i++){
-      if(i>=cnt&&log[i]==null)continue; // Keep completed values visible when reduced targets hide unlogged sets.
-      const v=log[i], on=v!=null;
-      if(e.amrap){h+=benchmarkField(e,i,v,true);continue;}
-      h+='<button class="chip'+(on?" on":"")+'" onclick="bfLogSet(\''+e.id+'\','+i+','+(i<cnt?tg[i]:tgt)+')">'+(on?v+unitOf(e):tg[i]+unitOf(e))+'</button>';
-    }
-    h+='</div>';
-    if(done>0&&!e.amrap)h+='<div class="adj"><span class="adjL">Fix last</span><button class="adjB" title="Adjust last logged set by one unit" onclick="bfNudge(\''+e.id+'\',-1)">−</button><button class="adjB" title="Adjust last logged set by one unit" onclick="bfNudge(\''+e.id+'\',1)">+</button></div>';
-    h+='</div>';
-  });
-  const detail=buildBfDetail(sid);
-  {
-    const t=sumDetail(detail);
-    const bits=[]; if(t.reps)bits.push(t.reps+" reps"); if(t.secs)bits.push(t.secs+"s");
-    h+='<div id="bfTotals" class="bfTotals">'+bits.join(" · ")+'</div>';
-  }
-  return h+'</div>';
-}
 function addMax(){
   const k=mxLift, d=mxDate||dayKey(), v=parseInt(mxVal,10);
   if(isNaN(v)||v<=0){ alert("Enter a number."); return; }
@@ -1880,7 +1752,7 @@ function applyBackup(text){
   if(!p||!Array.isArray(p.plan)||!p.plan.length||!p.plan.every(s=>s&&s.id&&Array.isArray(s.ex)&&s.ex.every(e=>e&&e.id&&["reps","s","min"].includes(e.unit)))||!p.today||!Array.isArray(p.history)){ alert("Could not read that: not a Bar.Log backup"); return; }
   if(!confirm("Replace everything currently stored with this backup?"))return;
   const fromVersion=Number(p.planVersion||1);
-  stopTimer(); bfLog={}; bfResetForm();
+  stopTimer();
   S=migrate(Object.assign(blank(),p),fromVersion,p); storageBlocked=false;
   historyMode="recent"; historyMonth=""; historySession=""; historyPage=0; openHist=-1; commit();
   toast("Restored");
@@ -2032,7 +1904,7 @@ function viewTrain(ph){
     for(let i=0;i<Math.max(cnt,log.length);i++){
       if(i>=cnt&&log[i]==null)continue; // Keep completed values visible when reduced targets hide unlogged sets.
       const v=log[i], on=v!=null;
-      if(e.amrap){h+=benchmarkField(e,i,v,false);continue;}
+      if(e.amrap){h+=benchmarkField(e,i,v);continue;}
       h+='<button class="chip'+(on?" on":"")+'" onclick="logSet(\''+e.id+'\','+i+','+(i<cnt?tg[i]:tgt)+')">'+(on?v+unitOf(e):tg[i]+unitOf(e))+'</button>';
     }
     h+='</div>';
@@ -2132,30 +2004,6 @@ function viewProgress(){
      '<div class="field"><label>Date</label><input id="mxDate" type="date" value="'+esc(mxDate||dayKey())+'" max="'+dayKey()+'" oninput="mxDate=this.value"></div>'+
      '<div class="acts"><button class="btn" onclick="addMax()">Add max</button></div>';
 
-  const bfw=calendarWeek(bfDay());
-  if(!S.plan.some(p=>p.id===bfSid))bfSid=S.plan[0].id;
-  h+='<div class="sec">Add a session you missed logging</div>'+
-     '<div class="note">Trained but forgot to open this? Log each exercise, or fall back to rep/sec totals only.</div>'+
-     '<div class="field"><label for="bfDate">Date</label><input id="bfDate" type="date" value="'+esc(bfDay())+'" max="'+dayKey()+'" onchange="bfSet(\'date\',this.value)"></div>'+
-     '<div class="field"><label>Session</label><select id="bfSess" onchange="setBfSess(this.value)">'+
-       S.plan.map(p=>'<option value="'+p.id+'"'+(p.id===bfSid?" selected":"")+'>'+p.id+' · '+esc(p.name)+'</option>').join("")+'</select></div>'+
-     '<div class="note">'+esc(weekText(bfDay()))+' · calculated from the workout date.</div>'+
-     '<div class="field"><label for="bfTargets">Targets</label><select id="bfTargets" onchange="setBfTargets(this.value)">'+
-       ['normal','reduced'].map(v=>'<option value="'+v+'"'+(v===bfTargetMode?' selected':'')+'>'+(v==='normal'?'Full':'Light')+'</option>').join('')+'</select></div>'+
-     viewBfExercises(bfSid,bfw)+
-     '<div class="bfSub">Or totals only</div>'+
-     '<div class="field"><label>Reps</label><input id="bfReps" type="number" step="1" inputmode="numeric" placeholder="0" value="'+esc(bfReps)+'" oninput="bfSet(\'reps\',this.value)">'+
-     '<label style="width:40px">Secs</label><input id="bfSecs" type="number" step="1" inputmode="numeric" placeholder="0" value="'+esc(bfSecs)+'" oninput="bfSet(\'secs\',this.value)"></div>'+
-     '<div class="note" style="margin-top:6px">Used only when no chips are logged above. Totals update live as you tap.</div>'+
-     '<div class="field"><label>Note</label><textarea id="bfNote" placeholder="How it felt, substitutions, etc." oninput="bfSet(\'note\',this.value)">'+esc(bfNote)+'</textarea></div>'+
-     '<div class="field"><label for="bfFeel">Felt</label><select id="bfFeel" onchange="bfSet(\'feel\',this.value)"><option value="">Not rated</option>'+
-       Object.keys(FEELS).map(k=>'<option value="'+k+'"'+(k===bfFeel?' selected':'')+'>'+FEELS[k]+'</option>').join('')+'</select></div>'+
-     '<div class="note" style="margin-top:6px">A rated session with exercise detail counts toward step ups like one logged live.</div>'+
-     '<div class="field"><label>Rice</label><span style="flex:1;font-size:12px;color:var(--galv);display:flex;align-items:center;gap:8px">'+
-       '<input id="bfRice" type="checkbox"'+(bfRice?" checked":"")+' onchange="bfSet(\'rice\',this.checked)" style="flex:0 0 auto;width:18px;height:18px"> Did rice bag wrist prep</span></div>'+
-     '<div class="note" style="margin-top:6px">Next up follows the workout you trained longest ago, so a backfilled session moves it on its own.</div>'+
-     '<div class="acts"><button class="btn" onclick="addPast()">Add session</button></div>';
-
   h+='<div class="sec">Review with AI</div>'+
      '<div class="note">A plain-text summary of your plan and the last six weeks: sets, check-ins, step ups and maxes. Share it to your AI app, add your question, and ask for a review. It is built on this device and only goes where you send it.</div>'+
      '<div class="acts">'+(navigator.share?'<button class="btn" onclick="shareCoach()">Share summary</button><button class="btn ghost" onclick="copyCoach()">Copy</button>':'<button class="btn" onclick="copyCoach()">Copy summary</button>')+'</div>';
@@ -2193,7 +2041,6 @@ function viewData(){
 load();
 if(!hasDraft()&&!S.today.selectionConfirmed)S.today.sid=nextId();
 refreshDraftDate();
-bfSid=S.today.sid;
 save();
 render();
 let lastCalendarDay=dayKey();
