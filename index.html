@@ -71,6 +71,8 @@ button{font-family:inherit}
 .daily.on{border-left-color:var(--sodium)}
 .daily.toggle{width:100%;border-top:0;border-right:0;border-bottom:0;text-align:left;color:inherit;font:inherit;cursor:pointer;margin-top:22px}
 .daily.toggle .dailyT,.daily.toggle .dailyS{display:block}
+.ex.wristOff .exN,.ex.wristOff .exT,.ex.wristOff .chips,.ex.wristOff .exNote{opacity:.45}
+.exLoad.wrist{color:var(--rust)}
 .box{width:17px;height:17px;flex-shrink:0;border-radius:2px;border:1px solid var(--galv);display:flex;align-items:center;justify-content:center;font-size:11px;color:var(--night)}
 .daily.on .box{background:var(--sodium);border-color:var(--sodium)}
 .dailyT{font-size:13px}
@@ -184,6 +186,7 @@ const DEFAULT_PLAN = [
       {
         "id": "a9balance",
         "n": "OAHS shift practice",
+        "wrist": "Skip today.",
         "tier": "skill",
         "sets": 1,
         "reps": 3,
@@ -247,6 +250,7 @@ const DEFAULT_PLAN = [
       {
         "id": "b3",
         "n": "Freestanding HSPU",
+        "wrist": "Do these on the bars, with a neutral wrist.",
         "tier": "main",
         "sets": 5,
         "reps": 1,
@@ -282,6 +286,7 @@ const DEFAULT_PLAN = [
       {
         "id": "b11push",
         "n": "Push ups",
+        "wrist": "On parallettes or fists, or skip today.",
         "tier": "accessory",
         "sets": 3,
         "reps": 10,
@@ -330,6 +335,7 @@ const DEFAULT_PLAN = [
       {
         "id": "c9balance",
         "n": "OAHS shift practice",
+        "wrist": "Skip today.",
         "tier": "skill",
         "sets": 1,
         "reps": 3,
@@ -377,6 +383,7 @@ const DEFAULT_PLAN = [
       {
         "id": "c10lean",
         "n": "Planche lean (light)",
+        "wrist": "On parallettes if you have them, or skip today.",
         "tier": "accessory",
         "sets": 3,
         "reps": 10,
@@ -406,6 +413,7 @@ const DEFAULT_PLAN = [
       {
         "id": "d8shifts",
         "n": "OAHS straddle shifts",
+        "wrist": "Skip today.",
         "tier": "skill",
         "sets": 1,
         "reps": 3,
@@ -418,6 +426,7 @@ const DEFAULT_PLAN = [
       {
         "id": "d11finger",
         "n": "Fingertip hold",
+        "wrist": "Skip today.",
         "tier": "skill",
         "sets": 3,
         "reps": 5,
@@ -430,6 +439,7 @@ const DEFAULT_PLAN = [
       {
         "id": "d12tuck",
         "n": "Tuck planche",
+        "wrist": "On parallettes if you have them, or skip today.",
         "tier": "main",
         "sets": 4,
         "reps": 5,
@@ -442,6 +452,7 @@ const DEFAULT_PLAN = [
       {
         "id": "d9lean",
         "n": "Feet-on-ground planche lean",
+        "wrist": "On parallettes if you have them, or skip today.",
         "tier": "skill",
         "sets": 3,
         "reps": 5,
@@ -654,7 +665,7 @@ function weekText(date){ const w=calendarWeek(date); return w==null?"Before star
 function hasDraft(){ return Object.values(S.today.log||{}).some(a=>a.some(v=>v!=null)); }
 function refreshDraftDate(){
   if(!hasDraft()&&S.today.date!==dayKey()){
-    S.today.date=dayKey();S.today.rice=false;delete S.today.feel;delete S.today.feelEx;
+    S.today.date=dayKey();S.today.rice=false;delete S.today.feel;delete S.today.feelEx;delete S.today.wristBreak;
     if(S.lightDate&&S.lightDate!==dayKey())endLightSession();
   }
 }
@@ -670,6 +681,22 @@ function setTargetMode(value){
   render();
 }
 function endLightSession(){ S.targetMode="normal"; delete S.lightDate; }
+// A wrist break applies to the current workout only. Palms-down exercises (e.wrist) are
+// dimmed with their cue; they stay loggable for bar versions, but those sessions never
+// count toward their ladders and do not clear a pending change on them.
+const wristCue=e=>typeof e.wrist==="string"&&e.wrist?e.wrist:"Skip today.";
+function setWristBreak(on){
+  const previous=S.today.wristBreak;
+  if(on)S.today.wristBreak=true; else delete S.today.wristBreak;
+  if(!save()){ if(previous)S.today.wristBreak=true; else delete S.today.wristBreak; render(); return; }
+  render();
+}
+function wristControl(){
+  const on=!!S.today.wristBreak;
+  return '<button class="daily toggle'+(on?" on":"")+'" role="switch" aria-checked="'+on+'" onclick="setWristBreak('+(!on)+')">'+
+    '<span class="box">'+(on?"\u2713":"")+'</span><span><span class="dailyT">Wrist break today</span>'+
+    '<span class="dailyS">Palms-down work is greyed out with a bar swap or a skip. Hanging and bar work as usual. Turns off when you finish.</span></span></button>';
+}
 function lightControl(){
   const on=S.targetMode==="reduced";
   return '<button class="daily toggle'+(on?" on":"")+'" role="switch" aria-checked="'+on+'" onclick="setTargetMode(\''+(on?'normal':'reduced')+'\')">'+
@@ -809,6 +836,14 @@ function addGripAlternation(plan){
   const e=plan.find(p=>p.id==="C")?.ex.find(e=>e.id==="c3");
   if(e&&e.n==="Pull ups"&&e.unit==="reps"&&!e.alt)e.alt=["Overhand","Underhand"];
 }
+// Palms-down work gets a wrist-break cue, added once where the exercise is still the default.
+const WRIST_CUES={"a9balance": "Skip today.", "c9balance": "Skip today.", "d8shifts": "Skip today.", "d11finger": "Skip today.", "b3": "Do these on the bars, with a neutral wrist.", "b11push": "On parallettes or fists, or skip today.", "c10lean": "On parallettes if you have them, or skip today.", "d12tuck": "On parallettes if you have them, or skip today.", "d9lean": "On parallettes if you have them, or skip today."};
+function addWristCues(plan){
+  for(const p of plan)for(const e of p.ex){
+    const def=DEFAULT_PLAN.find(x=>x.id===p.id)?.ex.find(x=>x.id===e.id);
+    if(def&&WRIST_CUES[e.id]&&e.n===def.n&&e.wrist===undefined)e.wrist=WRIST_CUES[e.id];
+  }
+}
 // One-time repairs for saved plans, applied in order. Each stores its key once it has run,
 // so later deliberate edits stick. v4Only patches leave older, unadopted routines alone.
 const PLAN_PATCHES=[
@@ -821,6 +856,7 @@ const PLAN_PATCHES=[
   {key:"benchmarkEntryVersion",v4Only:false,apply:updateBenchmarkEntryCopy},
   {key:"dipsCopyVersion",v4Only:true,apply:updateDipsCopy},
   {key:"gripAlternationVersion",v4Only:true,apply:addGripAlternation},
+  {key:"wristCuesVersion",v4Only:true,apply:addWristCues},
 ];
 function patchFlags(value){ return Object.fromEntries(PLAN_PATCHES.map(p=>[p.key,value(p.key)])); }
 // `saved` is the stored record (state, backup or archive) whose flags say what already ran.
@@ -995,7 +1031,7 @@ function ladderExposures(members,max){
     for(const m of members){
       if(r.sid!==m.sid||!r.detail)continue;
       const x=r.detail.find(d=>d.id?d.id===m.e.id:d.n===m.e.n&&d.unit===m.e.unit);
-      if(x&&x.sets&&x.sets.length)out.push({date:String(r.date),x,r,m});
+      if(x&&x.sets&&x.sets.length&&!(r.wristBreak&&m.e.wrist))out.push({date:String(r.date),x,r,m});
     }
     if(out.length>=max)break;
   }
@@ -1196,7 +1232,7 @@ function checkinSummary(weeks=6){
   }
   const count=k=>rated.filter(r=>r.feel===k).length, sore=k=>rows.filter(r=>r.soreness===k).length;
   return {total:rows.length,rated:rated.length,clean:count("clean"),grindy:count("grindy"),ache:count("ache"),flags,
-    soreness:{fresh:sore("fresh"),sore:sore("sore"),very:sore("very")}};
+    soreness:{fresh:sore("fresh"),sore:sore("sore"),very:sore("very")},wrist:rows.filter(r=>r.wristBreak).length};
 }
 function reducedHint(){
   if(S.targetMode!=="normal")return null;
@@ -1213,8 +1249,8 @@ function viewReducedHint(){
 }
 function snoozeReduced(){ const h=reducedHint(); if(!h)return; S.progress.reducedSnooze=h.key; commit(); }
 function viewCheckins(){
-  const c=checkinSummary(), n=c.soreness, sored=n.fresh+n.sore+n.very; if(!c.rated&&!sored)return "";
-  let h='<div class="sec">Check-ins · last 6 weeks</div><div class="note">Rated '+c.rated+' of '+c.total+' sessions · Clean '+c.clean+' · Grindy '+c.grindy+' · Ache '+c.ache+'</div>';
+  const c=checkinSummary(), n=c.soreness, sored=n.fresh+n.sore+n.very; if(!c.rated&&!sored&&!c.wrist)return "";
+  let h='<div class="sec">Check-ins · last 6 weeks</div><div class="note">Rated '+c.rated+' of '+c.total+' sessions · Clean '+c.clean+' · Grindy '+c.grindy+' · Ache '+c.ache+(c.wrist?' · Wrist break '+c.wrist:'')+'</div>';
   if(sored)h+='<div class="note">Next day: Fresh '+n.fresh+' · A bit sore '+n.sore+' · Too sore '+n.very+'</div>';
   const names=Object.keys(c.flags).sort((a,b)=>(c.flags[b].ache-c.flags[a].ache)||(c.flags[b].grindy-c.flags[a].grindy));
   names.forEach(n=>{
@@ -1247,7 +1283,7 @@ function coachSummary(weeks=6){
   rows.forEach(r=>{
     const next=SORENESS[r.soreness]?"; next day: "+SORENESS[r.soreness].toLowerCase():"";
     const feel=" ["+(FEELS[r.feel]?FEELS[r.feel]+(r.feelEx&&r.feelEx.length?": "+r.feelEx.map(id=>((r.detail||[]).find(x=>x.id===id)||{}).n||id).join(", "):""):"not rated")+next+"]";
-    L.push(r.date+" "+r.sid+(r.targetMode==="reduced"?" light session":"")+(r.manual?" (logged later)":"")+feel);
+    L.push(r.date+" "+r.sid+(r.targetMode==="reduced"?" light session":"")+(r.wristBreak?" wrist break":"")+(r.manual?" (logged later)":"")+feel);
     (r.detail||[]).filter(x=>x.unit!=="min").forEach(x=>{
       const missed=Array.isArray(x.target)&&!metTarget(x);
       L.push("  "+x.n+(x.variant?" ("+x.variant.toLowerCase()+")":"")+": "+x.sets.join(",")+(x.unit==="reps"?"":x.unit)+(missed?" (target "+x.target.join(",")+")":"")+(x.band?" band "+x.band:""));
@@ -1435,7 +1471,7 @@ function confirmSessionChange(){
   document.getElementById('workoutTitle')?.focus?.();
 }
 function toggleRice(){ S.today.rice=!S.today.rice; commit(); }
-function clearDay(){ stopTimer(); S.today.log={}; S.today.band={}; delete S.today.feel; delete S.today.feelEx; commit(); }
+function clearDay(){ stopTimer(); S.today.log={}; S.today.band={}; delete S.today.feel; delete S.today.feelEx; delete S.today.wristBreak; commit(); }
 function setTodayBand(id,v){ if(!S.today.band)S.today.band={}; S.today.band[id]=v; save(); }
 function cycleAlert(){ const o=["vibrate","sound","off"]; S.alert=o[(o.indexOf(S.alert)+1)%3]; commit(); }
 
@@ -1461,10 +1497,12 @@ function finish(){
   });
   openHist=-1;
   const feel=FEELS[S.today.feel]?{feel:S.today.feel,...(S.today.feelEx&&S.today.feelEx.length?{feelEx:S.today.feelEx.slice()}:{})}:{};
+  if(S.today.wristBreak)feel.wristBreak=true;
   S.history.unshift({date:S.today.date||dayKey(),finishedAt:new Date().toISOString(),sid:s.id,week:calendarWeek(S.today.date||dayKey()),weekSource:"calendar",targetMode:S.targetMode,reps:reps,secs:secs,detail:detail,...feel,...(S.today.rice?{rice:true}:{})});
   // Keep older entries; backups include the complete history.
   if(!s.testOnly)advanceAfter(s.id);
-  delete S.progress.pending[s.id];
+  const pend=S.progress.pending[s.id];
+  if(!(S.today.wristBreak&&pend&&(s.ex.find(e=>e.id===pend.id)||{}).wrist))delete S.progress.pending[s.id];
   endLightSession();
   S.today={date:dayKey(),sid:nextId(),log:{},band:{},rice:S.today.rice};
   if(!save()){S=before;render();return;}
@@ -1481,6 +1519,7 @@ function editField(sid,exId,field,val){
   if(["sets","reps","rest"].indexOf(field)>=0){ const n=parseInt(val,10); e[field]=isNaN(n)?0:Math.max(0,n); }
   else e[field]=val;
   if(field==="sets"||field==="reps")delete e.perSet; // a manual dose replaces step-up targets
+  if(field==="wrist"&&!val)delete e.wrist;
   save();
 }
 function delEx(sid,exId){
@@ -1871,9 +1910,9 @@ function viewLast(sid,e){
   if(e.tier==="prep")return "";
   const seen=lastExposures(sid,e,2);
   if(!seen.length)return "";
-  return '<div class="exLast">'+seen.map(({date,x},i)=>
+  return '<div class="exLast">'+seen.map(({date,x,r},i)=>
     '<div><span>'+(i?"Before":"Last")+' '+esc(shortD(date))+'</span> '+esc(x.sets.join(", "))+esc(x.unit==="reps"?"":x.unit)+
-    (x.variant?' <span>· '+esc(x.variant.toLowerCase())+'</span>':'')+
+    (x.variant?' <span>· '+esc(x.variant.toLowerCase())+'</span>':'')+(r.wristBreak&&e.wrist?' <span>· wrist break</span>':'')+
     (x.band?' <span>· band '+esc(x.band)+'</span>':'')+'</div>').join("")+'</div>';
 }
 
@@ -1909,8 +1948,10 @@ function viewTrain(ph){
     const w=calendarWeek(S.today.date||dayKey());
     const tg=setTargets(e,w), cnt=tg.length, tgt=repsFor(e,w), log=S.today.log[e.id]||[];
     const done=log.filter(v=>v!=null).length;
-    h+='<div class="ex"><div class="exTop"><div class="exN">'+esc(e.n)+(e.optional?' · optional':'')+'</div><div class="exT">'+
+    const wristOff=!!(S.today.wristBreak&&e.wrist);
+    h+='<div class="ex'+(wristOff?' wristOff':'')+'"><div class="exTop"><div class="exN">'+esc(e.n)+(e.optional?' · optional':'')+'</div><div class="exT">'+
        (e.amrap?"record actual":e.budget?tgt+"min total incl. rest":fmtTargets(tg,e))+(e.rest?" · "+mmss(e.rest)+" rest":"")+'</div></div>';
+    if(wristOff)h+='<div class="exLoad wrist">Wrist break: '+esc(wristCue(e))+'</div>';
     const variant=nextVariant(s.id,e);
     if(variant)h+='<div class="exLoad">This session: '+esc(variant)+'</div>';
     h+=viewLast(s.id,e);
@@ -1935,7 +1976,7 @@ function viewTrain(ph){
   });
 
   const any=s.ex.some(e=>(S.today.log[e.id]||[]).some(v=>v!=null));
-  if(!s.testOnly)h+=lightControl();
+  if(!s.testOnly)h+=wristControl()+lightControl();
   if(any&&!s.testOnly)h+=viewFeel(s);
   h+='<div class="acts"><button id="finishSession" class="btn" '+(any?"":"disabled")+' onclick="finish()">Finish session</button>'+
      '<button class="btn ghost" onclick="clearDay()">Clear</button></div>';
@@ -1968,7 +2009,7 @@ function viewHistory(){
     if(openHist===i){
       h+='<div style="padding:6px 0 12px 68px;border-bottom:1px solid var(--steel)">';
       if(r.weekSource!=="calendar"&&r.week!=null)h+='<div class="note">Original logged label: week '+esc(r.week)+'. Calendar label above comes from the workout date.</div>';
-      if(r.targetMode)h+='<div class="note">'+(r.targetMode==="reduced"?'Light session':'Full session')+(FEELS[r.feel]?' · '+esc(FEELS[r.feel])+(r.feelEx&&r.feelEx.length?': '+esc(r.feelEx.map(id=>(r.detail||[]).find(x=>x.id===id)?.n||id).join(', ')):''):'')+(SORENESS[r.soreness]?' · next day '+esc(SORENESS[r.soreness].toLowerCase()):'')+'</div>';
+      if(r.targetMode)h+='<div class="note">'+(r.targetMode==="reduced"?'Light session':'Full session')+(FEELS[r.feel]?' · '+esc(FEELS[r.feel])+(r.feelEx&&r.feelEx.length?': '+esc(r.feelEx.map(id=>(r.detail||[]).find(x=>x.id===id)?.n||id).join(', ')):''):'')+(r.wristBreak?' · Wrist break':'')+(SORENESS[r.soreness]?' · next day '+esc(SORENESS[r.soreness].toLowerCase()):'')+'</div>';
       if(r.note)h+='<div style="font-size:12px;color:var(--galv);padding:0 0 8px;line-height:1.45">'+esc(r.note)+'</div>';
       if(r.rice)h+='<div style="font-size:11px;color:var(--sodium);padding:0 0 8px">Rice bag ✓</div>';
       if(hasD)r.detail.forEach(x=>{
@@ -2082,6 +2123,7 @@ function viewEdit(){
       '<div class="field"><label>Tier</label><select onchange="editField(\''+s.id+'\',\''+e.id+'\',\'tier\',this.value)">'+
         ["prep","skill","main","accessory"].map(t=>'<option value="'+t+'"'+(e.tier===t?" selected":"")+'>'+t+'</option>').join("")+'</select></div>'+
       '<div class="field"><label>Optional</label><input type="checkbox" '+(e.optional?'checked':'')+' onchange="editField(\''+s.id+'\',\''+e.id+'\',\'optional\',this.checked)"></div>'+
+      '<div class="field"><label>Palms down</label><input type="checkbox" '+(e.wrist?'checked':'')+' onchange="editField(\''+s.id+'\',\''+e.id+'\',\'wrist\',this.checked)"><span class="note" style="margin:0;flex:1">Greyed out on a wrist break'+(typeof e.wrist==='string'?': '+esc(e.wrist):'')+'</span></div>'+
       (altOf(e)?'<div class="note">Alternates each session: '+esc(e.alt.join(' / '))+'. Train shows which one is next.</div>':'')+
       (validPerSet(e)?'<div class="note">Per-set targets from step ups: '+esc(fmtTargets(e.perSet,e))+'. Changing sets or reps replaces them.</div>':'')+
       '<div class="field"><label>Progress</label><textarea onchange="editField(\''+s.id+'\',\''+e.id+'\',\'progression\',this.value)">'+esc(e.progression||'')+'</textarea></div>'+
