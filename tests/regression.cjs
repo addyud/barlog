@@ -14,14 +14,14 @@ test('new install and every session render across eight calendar weeks',()=>{ass
 test('fixed doses, safe week-four reduction and exercise-specific progression',()=>{for(let w=1;w<=8;w++){assert.equal(run(`repsFor(DEFAULT_PLAN[0].ex.find(e=>e.id==='a8'),${w})`),6);assert.equal(run(`repsFor(DEFAULT_PLAN[1].ex[1],${w})`),1);assert.equal(run(`setsFor(DEFAULT_PLAN[0].ex.find(e=>e.id==='a3'),${w})`),5);}assert.equal(run(`repsFor(DEFAULT_PLAN[3].ex.find(e=>e.id==='d8shifts'),4)`),3);assert.ok(!run('viewTrain(phase(6))').includes('Slow the eccentric'));assert.equal(run('DEFAULT_PLAN[1].ex[2].id'),'b4free');assert.ok(run('DEFAULT_PLAN[1].ex[2].optional'));});
 test('legacy/custom plan load is not rewritten; adoption, undo and backup preserve records and unfinished work',()=>{run(`S=blank();S.planVersion=1;S.plan[0].ex[0].n='Custom warm up';S.plan[0].ex.push({id:'a4',n:'Custom MU',tier:'skill',sets:7,reps:2,unit:'reps',rest:60});S.today={date:'2026-01-01',sid:'A',log:{a4:[2]},band:{a4:'red'},rice:true};S.history=[{date:'2026-01-01',sid:'A',week:2,note:'kept',detail:[{n:'Original',unit:'reps',sets:[2],band:'red'}]}];S.prs.hspu=[{date:'2026-01-01',value:2}];save()`);const original=json('S');run('load()');assert.deepEqual(json('S.plan'),original.plan);assert.equal(run('S.planVersion'),1);run('switchPlan()');assert.equal(run('S.planVersion'),4);assert.deepEqual(json('S.history'),original.history);assert.deepEqual(json('S.prs'),original.prs);assert.deepEqual(json('S.planArchives[0].today'),original.today);run('restorePlan(0)');assert.deepEqual(json('S.plan'),original.plan);assert.deepEqual(json('S.today'),original.today);assert.deepEqual(JSON.parse(run('snapshot()')).history,original.history);});
 test('adoption storage failure leaves original state intact',()=>{const before=json('S');failSave=true;run('switchPlan()');failSave=false;assert.deepEqual(json('S'),before)});
-test('logging optional skip, one-second adjustment, history retention beyond 300 and rotation',()=>{run(`S=blank();S.today.sid='B';S.history=Array.from({length:320},(_,i)=>({date:'2025-01-01',sid:'A',note:String(i)}));logSet('b3',0,1);finish()`);assert.equal(run('S.history.length'),321);assert.equal(run('S.history[0].reps'),1);assert.equal(run('S.history[0].detail.length'),1);assert.equal(run('S.rot'),2);run(`S.today.sid='A';logSet('a8',0,6);nudge('a8',-1)`);assert.deepEqual(json('S.today.log.a8'),[5]);});
+test('logging optional skip, one-second adjustment, history retention beyond 300 and rotation',()=>{run(`S=blank();S.today.sid='B';S.today.maxTest=false;S.history=Array.from({length:320},(_,i)=>({date:'2025-01-01',sid:'A',note:String(i)}));logSet('b3',0,1);finish()`);assert.equal(run('S.history.length'),321);assert.equal(run('S.history[0].reps'),1);assert.equal(run('S.history[0].detail.length'),1);assert.equal(run('S.rot'),2);run(`S.today.sid='A';S.today.maxTest=false;logSet('a8',0,6);nudge('a8',-1)`);assert.deepEqual(json('S.today.log.a8'),[5]);});
 test('recent rows sort chronologically, keep same-day order and never mutate stored ordering',()=>{run(`S.history=[{date:'2026-08-01',sid:'B',note:'old'},{date:'2026-09-10',sid:'A',note:'same1'},{date:'2026-09-10',sid:'C',note:'same2'},...Array.from({length:24},(_,i)=>({date:'2026-09-'+String(i+1).padStart(2,'0'),sid:i%2?'A':'D',note:'r'+i}))];historyMode='recent'`);const before=json('S.history');assert.equal(run('historyWindow().rows.length'),5);assert.deepEqual(json('historyRows().filter(x=>x.record.date===\'2026-09-10\').map(x=>x.record.note)'),['same1','same2','r9']);run('viewHistory()');assert.deepEqual(json('S.history'),before);});
 test('filtered pagination targets actual source record for date edit and delete',()=>{run(`historyMode='browse';historySession='A';historyMonth='2026-09';historyPage=1`);const rows=json('historyWindow().rows');assert.ok(rows.length);const i=rows[0].index;const before=json('S.history');run(`setHistDate(${i},'2026-07-04')`);assert.equal(run(`S.history[${i}].date`),'2026-07-04');assert.equal(run(`S.history[${i}].note`),before[i].note);assert.equal(run('historyWindow().total'),12);context.confirm=()=>true;const idx=run('historyWindow().rows[0].index');const deleted=run(`S.history[${idx}].note`);run(`delHist(${idx})`);assert.ok(!json('S.history').some(r=>r.note===deleted));context.confirm=()=>false;});
 test('page clamps after deletion; empty filters and return to recent remain coherent',()=>{run(`S.history=[{date:'2026-09-01',sid:'A'}];historyPage=99;historyMonth='2026-09';historySession='A'`);assert.equal(run('historyWindow().pages'),1);assert.equal(run('historyPage'),0);run(`historySession='Z'`);assert.ok(run('viewHistory()').includes('No workouts match'));run('browseHistory(false)');assert.equal(run('historyWindow().rows.length'),1);});
 test('backfill details, notes and saved plan archive survive export/import',()=>{run(`S=blank();bfSid='A';bfDate='2026-09-01';bfNote='Test note';bfAdv=false;bfRice=true;bfLog={a8:[5,6],a6:[8]};addPast();switchPlan()`);const backup=run('snapshot()');const expected=JSON.parse(backup);context.confirm=()=>true;context.backupText=backup;run('S=blank();applyBackup(backupText)');context.confirm=()=>false;assert.deepEqual(json('S.history'),expected.history);assert.deepEqual(json('S.planArchives'),expected.planArchives);assert.equal(run('S.history[0].secs'),11);assert.equal(run('S.history[0].note'),'Test note');});
 test('training and backfill corrections use one unit, affect only the last logged set and clamp at zero',()=>{
   for(const [id,value] of [['a8',6],['a6',8],['a1',5]]){
-    run(`S=blank(); S.today.sid='A'; S.today.log['${id}']=[${value},null,${value}]; bfSid='A'; bfLog={'${id}':[${value},null,${value}]}`);
+    run(`S=blank(); S.today.sid='A';S.today.maxTest=false; S.today.log['${id}']=[${value},null,${value}]; bfSid='A'; bfLog={'${id}':[${value},null,${value}]}`);
     run(`nudge('${id}',1);bfNudge('${id}',1)`);
     assert.deepEqual(json(`S.today.log['${id}']`),[value,null,value+1]);
     assert.deepEqual(json(`bfLog['${id}']`),[value,null,value+1]);
@@ -58,7 +58,7 @@ test('old v4 backup receives rice patch; daily rice tick and exercise details su
  run(`S=blank();delete S.riceRestoreVersion;S.plan[1].ex=S.plan[1].ex.filter(e=>e.id!=='b7');S.plan[3].ex=S.plan[3].ex.filter(e=>e.id!=='d7')`);
  context.backupText=run('snapshot()');context.confirm=()=>true;run('applyBackup(backupText)');context.confirm=()=>false;
  assert.equal(run(`S.plan[1].ex.filter(e=>e.id==='b7').length`),1);
- run(`S.today.sid='B';S.today.rice=true;S.today.log={b7:[5],b3:[1]};finish()`);
+ run(`S.today.sid='B';S.today.maxTest=false;S.today.rice=true;S.today.log={b7:[5],b3:[1]};finish()`);
  assert.equal(run('S.history[0].rice'),true);assert.deepEqual(json(`S.history[0].detail.find(e=>e.n==='Rice bag wrists').sets`),[5]);
  assert.ok(run('viewTrain(phase(1))').includes('class="daily on"'));
 });
@@ -94,7 +94,7 @@ test('manual handstands, unknown custom sequences, archived plans and old backup
  assert.equal(run('S.reducedWeek4'),false);assert.equal(run(`S.plan[2].ex.filter(e=>e.id==='c9balance').length`),1);
 });
 test('explicit reduced targets preserve all logs, survive backup/restore, and work independently of weeks',()=>{
- run(`S=blank();S.week=4;S.targetMode='reduced';bfTargetMode='reduced';S.today.sid='A';S.today.log={a8:[6,5,6,5,4],a9balance:[3]};bfSid='A';bfLog={a8:[6,6,5,4,3],a9balance:[3]}`);
+ run(`S=blank();S.week=4;S.targetMode='reduced';bfTargetMode='reduced';S.today.sid='A';S.today.maxTest=false;S.today.log={a8:[6,5,6,5,4],a9balance:[3]};bfSid='A';bfLog={a8:[6,6,5,4,3],a9balance:[3]}`);
  const today=json('S.today'),history=json('S.history'),backfill=json('bfLog');
  assert.equal(run(`setsFor(S.plan[0].ex.find(e=>e.id==='a8'),4)`),3);
  assert.equal(run(`repsFor(S.plan[0].ex.find(e=>e.id==='a9balance'),4)`),2);
@@ -110,7 +110,7 @@ test('explicit reduced targets preserve all logs, survive backup/restore, and wo
 });
 test('corrupt stored JSON is not overwritten on boot',()=>{const local=new Map([[storageKey,'{broken']]);const other=vm.createContext({...context,localStorage:{getItem:k=>local.get(k),setItem:(k,v)=>local.set(k,v)}});vm.runInContext(source,other);assert.equal(local.get(storageKey),'{broken');});
 test('Train shows the last two results per exercise, newest first, same session only, with legacy name matching',()=>{
- run(`S=blank();S.today.sid='A';logSet('a8',0,6);logSet('a8',1,6);nudge('a8',-1);S.today.date='2026-09-10';finish()`);
+ run(`S=blank();S.today.sid='A';S.today.maxTest=false;logSet('a8',0,6);logSet('a8',1,6);nudge('a8',-1);S.today.date='2026-09-10';finish()`);
  assert.deepEqual(json('S.history[0].detail.find(d=>d.n==="Tuck front lever")'),{id:'a8',n:'Tuck front lever',unit:'s',sets:[6,5],target:[6,6,6,6,6]});
  run(`S.history.push({date:'2026-09-03',sid:'A',detail:[{n:'Tuck front lever',unit:'s',sets:[4,4]},{n:'Warm up',unit:'min',sets:[5]}]},
    {date:'2026-08-01',sid:'A',detail:[{n:'Tuck front lever',unit:'s',sets:[1]}]},
@@ -123,11 +123,11 @@ test('Train shows the last two results per exercise, newest first, same session 
  run(`S.plan[0].ex.find(e=>e.id==='a8').n='Renamed lever'`);
  assert.ok(run(`viewLast('A',S.plan[0].ex.find(e=>e.id==='a8'))`).includes('Last 10/09'),'ID match survives a rename');
  run(`S.history.unshift({date:'2026-09-14',sid:'A',detail:[{id:'a8',n:'Renamed lever',unit:'s',sets:[7]}]});S.today.band={};`);
- run(`S.today.sid='A';tab='train';render()`);assert.ok(elements.get('app').innerHTML.includes('Last 14/09</span> 7s'));
+ run(`S.today.sid='A';S.today.maxTest=false;tab='train';render()`);assert.ok(elements.get('app').innerHTML.includes('Last 14/09</span> 7s'));
 });
 test('hold stopwatch is gone; seconds exercises still log and correct by one',()=>{
  assert.equal(run('typeof toggleHold'),'undefined');assert.equal(run('typeof bfToggleHold'),'undefined');
- run(`S=blank();S.today.sid='A';tab='train';render()`);assert.ok(!elements.get('app').innerHTML.includes('time a hold'));
+ run(`S=blank();S.today.sid='A';S.today.maxTest=false;tab='train';render()`);assert.ok(!elements.get('app').innerHTML.includes('time a hold'));
  run(`logSet('a8',0,6);nudge('a8',-1)`);assert.deepEqual(json('S.today.log.a8'),[5]);
  assert.ok(run('viewTrain(phase(1))').includes('Fix last'));
 });
@@ -218,7 +218,7 @@ test('OAHS: D is the one-arm session, fingertip holds lead to lifts; saved plans
  assert.equal(run(`S.plan[2].ex.find(e=>e.id==='c9balance').n`),'My handstand block','personal name kept');
 });
 test('deficit HSPU: two optional slow-descent singles; saved cues update without changing logs or personal edits',()=>{
- run(`S=blank();S.today.sid='B';tab='train';render()`);
+ run(`S=blank();S.today.sid='B';S.today.maxTest=false;tab='train';render()`);
  const ex=json(`S.plan[1].ex.find(e=>e.id==='b4free')`);
  assert.equal(ex.sets,2);assert.equal(ex.reps,1);assert.equal(ex.rest,180);assert.equal(ex.optional,true);
  assert.ok(ex.note.startsWith('2 singles with a slow, controlled descent.'));
