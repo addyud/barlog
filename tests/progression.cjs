@@ -309,4 +309,28 @@ test('the planche milestone walks tuck, flat tuck, advanced tuck and band-assist
  a.run(`editField('D','d12tuck','trackBand',false)`);assert.equal(pl().trackBand,undefined);assert.ok(a.run(`editSess='D';viewEdit()`).includes('<label>Track band</label>'));
  a.run(`editField('D','d12tuck','trackBand',true)`);assert.equal(pl().trackBand,true);
 });
+test('the lever milestone stages both A and C together; ring support stages to rings turned out',()=>{
+ const a=boot();
+ a.run(`S.plan[0].ex.find(e=>e.id==='a8').reps=8;S.plan[2].ex.find(e=>e.id==='c8').reps=8`);
+ train(a,'A',['a8'],'clean');train(a,'C',['c8'],'clean');a.run(`S.today.sid='A';S.today.maxTest=false`);
+ let p=steps(a,'A').a8;assert.equal(p.kind,'milestone');assert.equal(p.swap.n,'Advanced tuck front lever');assert.equal(p.rule.reset,undefined);
+ assert.match(a.run('viewTrain(phase())'),/Switch to Advanced tuck front lever · 5 × 5s/);
+ a.run(`stepAction('a8','swap')`);
+ for(const [sid,id,sets] of [['A','a8',5],['C','c8',4]]){const e=ex(a,sid,id);assert.equal(e.n,'Advanced tuck front lever',sid);assert.equal(e.reps,5);assert.equal(e.sets,sets);assert.equal(e.cap,true);assert.equal(e.max,'lever');assert.match(e.note,/Knees drawn away/);}
+ assert.deepEqual(a.json('S.progress.log.filter(x=>x.kind==="swap").map(x=>x.sid+" "+x.n+" "+x.to).sort()'),['A Tuck front lever → Advanced tuck front lever 5 × 5s','C Tuck front lever → Advanced tuck front lever 4 × 5s']);
+ assert.equal(a.run('S.progress.pending.A.id'),'a8');assert.equal(a.run('S.progress.pending.C.id'),'c8');
+ assert.equal(steps(a,'C').c8.kind,'wait','climb restarts on both');assert.equal(steps(a,'C').c8.streak,0);
+ a.run(`S.plan[0].ex.find(e=>e.id==='a8').reps=8;S.plan[2].ex.find(e=>e.id==='c8').reps=8`);train(a,'C',['c8'],'clean');train(a,'A',['a8'],'clean');a.run(`S.today.sid='C';S.today.maxTest=false`);
+ p=steps(a,'C').c8;assert.equal(p.swap.n,'One-leg front lever');a.run(`stepAction('c8','swap')`);assert.equal(ex(a,'A','a8').n,'One-leg front lever');assert.equal(ex(a,'A','a8').reps,3);
+ a.run(`S.plan[0].ex.find(e=>e.id==='a8').reps=8;S.plan[2].ex.find(e=>e.id==='c8').reps=8`);train(a,'C',['c8'],'clean');train(a,'A',['a8'],'clean');a.run(`S.today.sid='A';S.today.maxTest=false`);
+ p=steps(a,'A').a8;assert.equal(p.swap.n,'Straddle front lever');a.run(`stepAction('a8','swap')`);
+ a.run(`S.plan[0].ex.find(e=>e.id==='a8').reps=8;S.plan[2].ex.find(e=>e.id==='c8').reps=8`);train(a,'C',['c8'],'clean');train(a,'A',['a8'],'clean');a.run(`S.today.sid='A';S.today.maxTest=false`);
+ p=steps(a,'A').a8;assert.equal(p.kind,'milestone');assert.equal(p.swap,undefined,'end of the lever chain');
+ const b=boot();b.run(`S.plan[3].ex.find(e=>e.id==='d13support').reps=30`);train(b,'D',['d13support'],'clean');train(b,'D',['d13support'],'clean');b.run(`S.today.sid='D';S.today.maxTest=false`);
+ p=steps(b,'D').d13support;assert.equal(p.kind,'milestone');assert.equal(p.swap.n,'Ring support hold, rings turned out');assert.equal(p.rule.reset,undefined);
+ assert.match(b.run('viewTrain(phase())'),/Switch to Ring support hold, rings turned out · 3 × 15s/);assert.ok(!b.run('viewTrain(phase())').includes("'reset'"));
+ b.run(`stepAction('d13support','swap')`);const r=ex(b,'D','d13support');assert.equal(r.reps,15);assert.equal(r.cap,true);assert.match(r.note,/thumbs pointing away/);
+ b.run(`S.plan[3].ex.find(e=>e.id==='d13support').reps=30`);train(b,'D',['d13support'],'clean');train(b,'D',['d13support'],'clean');b.run(`S.today.sid='D';S.today.maxTest=false`);
+ assert.equal(steps(b,'D').d13support.swap,undefined,'end of the ring chain');
+});
 console.log(`${passed} progression groups passed.`);

@@ -1023,7 +1023,11 @@ const rotAt=n=>{ const c=cycle(); return c.length?c[((n%c.length)+c.length)%c.le
    marked Clean for that exercise, on normal targets, at the current target, with every
    set met. One step up per workout until that workout has been trained again. */
 const ER_LADDER={unit:"reps",mode:"one",step:1,top:20,clean:1,reset:15,next:"2 \u00d7 20 reached. Switch to a heavier band and rebuild from 15."};
-const LEVER_LADDER={unit:"s",mode:"half",step:1,top:8,clean:2,next:"Holds reached 8s. Keep building toward 10s, or move to a slightly longer lever with shorter holds."};
+const LEVER_LADDER={unit:"s",mode:"half",step:1,top:8,clean:2,next:"Holds reached 8s. Move to the next stage: a slightly longer lever at shorter holds.",
+  stages:[{n:"Tuck front lever"},
+    {n:"Advanced tuck front lever",reps:5,note:"Knees drawn away from the chest, back flat, hips level with the bar. Stop when hips drop or the back rounds. Fix the chip to your actual seconds."},
+    {n:"One-leg front lever",reps:3,note:"One leg straight, the other tucked; swap legs each set. Hips level with the bar. Stop when hips drop. Fix the chip to your actual seconds."},
+    {n:"Straddle front lever",reps:3,note:"Legs straight and wide, hips level with the bar, body flat. Stop when hips drop. Fix the chip to your actual seconds."}]};
 const LADDERS={
   a8:LEVER_LADDER, c8:LEVER_LADDER,
   b3:{unit:"reps",mode:"one",step:1,top:2,clean:1,next:"5 \u00d7 2 reached. Pick the next step yourself: more reps, deficit depth or a harder variation."},
@@ -1043,7 +1047,9 @@ const LADDERS={
       {n:"Advanced tuck planche",reps:3,note:"Knees drawn away from the chest, hips at shoulder height, back flat. Stop when hips drop or elbows bend. Fix the chip to your actual seconds."},
       {n:"Band-assisted straddle planche",reps:3,trackBand:true,note:"Band from the bar under the hips, legs in a straddle, straight arms. Pick a band that makes the hold hard and log it. Stop when hips drop or elbows bend."}]},
   d9lean:{unit:"s",mode:"half",step:1,top:8,clean:2,reset:5,next:"8s at this depth. Go slightly deeper and drop back to 5s."},
-  d13support:{unit:"s",mode:"all",step:3,top:30,clean:2,reset:15,next:"3 \u00d7 30s reached. Turn the rings out at shorter holds and rebuild to 30s."}
+  d13support:{unit:"s",mode:"all",step:3,top:30,clean:2,next:"3 \u00d7 30s reached. Move to the next stage.",
+    stages:[{n:"Ring support hold"},
+      {n:"Ring support hold, rings turned out",reps:15,note:"Rings turned out (thumbs pointing away), arms locked, shoulders pushed down, rings close to your sides. Stop when the rings shake hard or your elbows bend."}]}
 };
 const FEELS={clean:"Clean",grindy:"Grindy",ache:"Ache"};
 function ladderFor(e){
@@ -1199,12 +1205,14 @@ function stepAction(exId,action){
     S.progress.acks[p.pool]=p.sig; progressNote(s.id,p.from,null,"milestone",e);
     msg="Milestone noted · "+e.n;
   }else if(action==="swap"&&p.kind==="milestone"&&p.swap){
-    const to=Array(e.sets).fill(p.swap.reps), was=e.n;
-    applyTargets(e,to); e.n=p.swap.n; if(p.swap.note)e.note=p.swap.note;
-    if(p.swap.trackBand)e.trackBand=true; else delete e.trackBand;
-    progressNote(s.id,p.from,to,"swap",{...e,n:was+" \u2192 "+e.n}); S.progress.pending[s.id]={id:e.id,date:dayKey()};
+    for(const m of ladderMembers(s.id,e)){
+      const x=m.e, from=fullTargets(x), to=Array(x.sets).fill(p.swap.reps), was=x.n;
+      applyTargets(x,to); x.n=p.swap.n; if(p.swap.note)x.note=p.swap.note;
+      if(p.swap.trackBand)x.trackBand=true; else delete x.trackBand;
+      progressNote(m.sid,from,to,"swap",{...x,n:was+" \u2192 "+x.n}); S.progress.pending[m.sid]={id:x.id,date:dayKey()};
+    }
     delete S.progress.acks[p.pool];
-    msg="Switched \u00b7 "+e.n+" "+fmtTargets(to,e,true);
+    msg="Switched \u00b7 "+e.n+" "+fmtTargets(Array(e.sets).fill(p.swap.reps),e,true);
   }else if(action==="reset"&&p.kind==="milestone"&&p.rule.reset){
     change(ladderMembers(s.id,e).map(m=>({...m,from:fullTargets(m.e),to:Array(m.e.sets).fill(p.rule.reset)})),"reset");
     delete S.progress.acks[p.pool];
