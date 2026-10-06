@@ -18,22 +18,19 @@ test('logging optional skip, one-second adjustment, history retention beyond 300
 test('recent rows sort chronologically, keep same-day order and never mutate stored ordering',()=>{run(`S.history=[{date:'2026-08-01',sid:'B',note:'old'},{date:'2026-09-10',sid:'A',note:'same1'},{date:'2026-09-10',sid:'C',note:'same2'},...Array.from({length:24},(_,i)=>({date:'2026-09-'+String(i+1).padStart(2,'0'),sid:i%2?'A':'D',note:'r'+i}))];historyMode='recent'`);const before=json('S.history');assert.equal(run('historyWindow().rows.length'),5);assert.deepEqual(json('historyRows().filter(x=>x.record.date===\'2026-09-10\').map(x=>x.record.note)'),['same1','same2','r9']);run('viewHistory()');assert.deepEqual(json('S.history'),before);});
 test('filtered pagination targets actual source record for date edit and delete',()=>{run(`historyMode='browse';historySession='A';historyMonth='2026-09';historyPage=1`);const rows=json('historyWindow().rows');assert.ok(rows.length);const i=rows[0].index;const before=json('S.history');run(`setHistDate(${i},'2026-07-04')`);assert.equal(run(`S.history[${i}].date`),'2026-07-04');assert.equal(run(`S.history[${i}].note`),before[i].note);assert.equal(run('historyWindow().total'),12);context.confirm=()=>true;const idx=run('historyWindow().rows[0].index');const deleted=run(`S.history[${idx}].note`);run(`delHist(${idx})`);assert.ok(!json('S.history').some(r=>r.note===deleted));context.confirm=()=>false;});
 test('page clamps after deletion; empty filters and return to recent remain coherent',()=>{run(`S.history=[{date:'2026-09-01',sid:'A'}];historyPage=99;historyMonth='2026-09';historySession='A'`);assert.equal(run('historyWindow().pages'),1);assert.equal(run('historyPage'),0);run(`historySession='Z'`);assert.ok(run('viewHistory()').includes('No workouts match'));run('browseHistory(false)');assert.equal(run('historyWindow().rows.length'),1);});
-test('backfill details, notes and saved plan archive survive export/import',()=>{run(`S=blank();bfSid='A';bfDate='2026-09-01';bfNote='Test note';bfRice=true;bfLog={a8:[5,6],a6:[8]};addPast();switchPlan()`);const backup=run('snapshot()');const expected=JSON.parse(backup);context.confirm=()=>true;context.backupText=backup;run('S=blank();applyBackup(backupText)');context.confirm=()=>false;assert.deepEqual(json('S.history'),expected.history);assert.deepEqual(json('S.planArchives'),expected.planArchives);assert.equal(run('S.history[0].secs'),11);assert.equal(run('S.history[0].note'),'Test note');});
-test('training and backfill corrections use one unit, affect only the last logged set and clamp at zero',()=>{
+test('history details, notes and saved plan archive survive export/import',()=>{run(`S=blank();S.history.unshift({date:'2026-09-01',sid:'A',week:3,weekSource:'calendar',targetMode:'normal',reps:8,secs:11,manual:true,note:'Test note',rice:true,detail:[{id:'a8',n:'Tuck front lever',unit:'s',sets:[5,6]},{id:'a6',n:'False grip ring rows',unit:'reps',sets:[8]}]});switchPlan()`);const backup=run('snapshot()');const expected=JSON.parse(backup);context.confirm=()=>true;context.backupText=backup;run('S=blank();applyBackup(backupText)');context.confirm=()=>false;assert.deepEqual(json('S.history'),expected.history);assert.deepEqual(json('S.planArchives'),expected.planArchives);assert.equal(run('S.history[0].secs'),11);assert.equal(run('S.history[0].note'),'Test note');});
+test('training corrections use one unit, affect only the last logged set and clamp at zero',()=>{
   for(const [id,value] of [['a8',6],['a6',8],['a1',5]]){
-    run(`S=blank(); S.today.sid='A';S.today.maxTest=false; S.today.log['${id}']=[${value},null,${value}]; bfSid='A'; bfLog={'${id}':[${value},null,${value}]}`);
-    run(`nudge('${id}',1);bfNudge('${id}',1)`);
+    run(`S=blank(); S.today.sid='A';S.today.maxTest=false; S.today.log['${id}']=[${value},null,${value}]`);
+    run(`nudge('${id}',1)`);
     assert.deepEqual(json(`S.today.log['${id}']`),[value,null,value+1]);
-    assert.deepEqual(json(`bfLog['${id}']`),[value,null,value+1]);
-    run(`nudge('${id}',-1);bfNudge('${id}',-1)`);
+    run(`nudge('${id}',-1)`);
     assert.deepEqual(json(`S.today.log['${id}']`),[value,null,value]);
-    assert.deepEqual(json(`bfLog['${id}']`),[value,null,value]);
-    run(`S.today.log['${id}']=[0];bfLog['${id}']=[0];nudge('${id}',-1);bfNudge('${id}',-1)`);
-    assert.deepEqual(json(`S.today.log['${id}']`),[0]);assert.deepEqual(json(`bfLog['${id}']`),[0]);
+    run(`S.today.log['${id}']=[0];nudge('${id}',-1)`);
+    assert.deepEqual(json(`S.today.log['${id}']`),[0]);
   }
-  run(`S.today.log={a8:[6],a6:[8]};bfLog={a8:[6],a6:[8]}`);
+  run(`S.today.log={a8:[6],a6:[8]}`);
   assert.ok(run('viewTrain(phase(1))').includes('title="Adjust last logged set by one unit"'));
-  assert.ok(run('viewBfExercises("A",1)').includes('title="Adjust last logged set by one unit"'));
   assert.ok(run('viewTrain(phase(1))').includes('>+</button>'));
 });
 test('rice restoration upgrades adopted v4 once without changing unrelated data or custom work',()=>{
@@ -94,15 +91,14 @@ test('manual handstands, unknown custom sequences, archived plans and old backup
  assert.equal(run('S.reducedWeek4'),false);assert.equal(run(`S.plan[2].ex.filter(e=>e.id==='c9balance').length`),1);
 });
 test('explicit reduced targets preserve all logs, survive backup/restore, and work independently of weeks',()=>{
- run(`S=blank();S.week=4;S.targetMode='reduced';bfTargetMode='reduced';S.today.sid='A';S.today.maxTest=false;S.today.log={a8:[6,5,6,5,4],a9balance:[3]};bfSid='A';bfLog={a8:[6,6,5,4,3],a9balance:[3]}`);
- const today=json('S.today'),history=json('S.history'),backfill=json('bfLog');
+ run(`S=blank();S.week=4;S.targetMode='reduced';S.today.sid='A';S.today.maxTest=false;S.today.log={a8:[6,5,6,5,4],a9balance:[3]}`);
+ const today=json('S.today'),history=json('S.history');
  assert.equal(run(`setsFor(S.plan[0].ex.find(e=>e.id==='a8'),4)`),3);
  assert.equal(run(`repsFor(S.plan[0].ex.find(e=>e.id==='a9balance'),4)`),2);
  assert.ok(run('viewTrain(phase(4))').includes("logSet('a8',4,6)"));
- assert.ok(run('viewBfExercises("A",4)').includes("bfLogSet('a8',4,6)"));
  run("setTargetMode('normal')");assert.equal(run(`setsFor(S.plan[0].ex.find(e=>e.id==='a8'),4)`),5);
  assert.equal(run(`repsFor(S.plan[0].ex.find(e=>e.id==='a9balance'),4)`),3);
- assert.deepEqual(json('S.today'),today);assert.deepEqual(json('bfLog'),backfill);assert.deepEqual(json('S.history'),history);
+ assert.deepEqual(json('S.today'),today);assert.deepEqual(json('S.history'),history);
  for(const w of [1,2,3,5,6,7,8])assert.equal(run(`setsFor(S.plan[0].ex.find(e=>e.id==='a8'),${w})`),5);
  context.backupText=run('snapshot()');context.confirm=()=>true;run('S=blank();applyBackup(backupText)');context.confirm=()=>false;
  assert.equal(run('S.targetMode'),'normal');assert.deepEqual(json('S.today'),today);

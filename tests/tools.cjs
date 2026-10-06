@@ -109,7 +109,6 @@ test('light sessions read clearly in history, backfill, suggestions and the AI s
  const a=boot();a.run(`setTargetMode('reduced');S.today.sid='B';S.today.maxTest=false;logSet('b3',0,1);finish();openHist=0`);
  assert.match(a.run('viewHistory()'),/<div class="note">Light session<\/div>/);
  assert.match(a.run('coachSummary()'),/2026-09-25 B light session \[not rated\]/);
- assert.match(a.run('viewBfExercises("A",1)+viewProgress()'),/<option value="reduced">Light<\/option>/);
  train(a,'C',['c3'],'ache',['c3'],'2026-09-26');train(a,'D',['d11finger'],'ache',['d11finger'],'2026-09-27');
  assert.match(a.run('viewTrain(phase())'),/Make today a light session\?.*Make today light/s);
 });

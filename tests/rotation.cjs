@@ -52,10 +52,9 @@ test('next up is the workout trained longest ago; history edits move it unless a
  hist(['2026-09-23','A'],['2026-09-23','D'],['2026-09-24','B'],['2026-09-21','C']);a.run(`S.history[3].finishedAt='2026-09-25T10:00:00.000Z'`);
  assert.equal(a.run('nextId()'),'D','the workout just finished is never next, whatever its date');
  hist(['2026-09-30','A'],['2026-10-02','C'],['2026-10-04','B']);assert.equal(a.run('S.today.sid'),'D');
- a.run(`bfSid='D';bfDate='2026-10-05';bfLog={d11finger:[5]};addPast()`);assert.equal(a.run('S.today.sid'),'A','a backfill moves next up');
+ a.run(`S.history.unshift({date:'2026-10-05',sid:'D',detail:[]});syncNext()`);assert.equal(a.run('S.today.sid'),'A','an added session moves next up');
  a.run('delHist(0)');assert.equal(a.run('S.today.sid'),'D','deleting it moves it back');
- a.run(`pickSession('B');confirmSessionChange()`);a.run(`bfSid='B';bfDate='2026-10-05';bfLog={b3:[1]};addPast()`);assert.equal(a.run('S.today.sid'),'B','a confirmed choice holds');
- assert.ok(!a.run('viewProgress()').includes('Rotation</div>'),'no manual nudge');assert.ok(!a.run('viewProgress()').includes('bfAdv'));
- assert.match(a.run('viewProgress()'),/trained longest ago/);
+ a.run(`pickSession('B');confirmSessionChange()`);a.run(`S.history.unshift({date:'2026-10-05',sid:'B',detail:[]});syncNext()`);assert.equal(a.run('S.today.sid'),'B','a confirmed choice holds');
+ assert.ok(!a.run('viewProgress()').includes('Rotation</div>'),'no manual nudge');assert.ok(!a.run('viewProgress()').includes('missed logging'),'no backfill form');
 });
 console.log(`${passed} rotation groups passed.`);

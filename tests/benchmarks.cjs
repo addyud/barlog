@@ -1,9 +1,9 @@
 const assert=require('node:assert/strict'),{boot}=require('./helpers/app.cjs');
 let passed=0;
 function test(name,f){f();passed++;console.log('PASS '+name)}
-test('blank results replace benchmark targets in Train and backfill',()=>{
+test('blank results replace benchmark targets in Train',()=>{
  const a=boot();a.run("pickSession('T');confirmSessionChange()");
- for(const html of [a.run('viewTrain(phase())'),a.run("viewBfExercises('T',1)")]){
+ for(const html of [a.run('viewTrain(phase())')]){
   assert.equal((html.match(/placeholder="Your result" value=""/g)||[]).length,5);
   assert.ok(!/onclick="(?:bfLogSet|logSet)\('t[23768]'/.test(html));
  }
@@ -24,12 +24,6 @@ test('clear and invalid entries cannot leave a stale benchmark value; zero is a 
   assert.deepEqual(a.json('S.today.log.t3'),[null]);assert.equal(a.elements.get('finishSession').disabled,true);
  }
  a.run("recordBenchmark('t3',0,'0',false);finish()");assert.equal(a.run('S.prs.hspu[0].value'),0);
-});
-test('backfill preserves actual seconds and reps, leaves live draft and rotation untouched',()=>{
- const a=boot();const draft=a.json('S.today'),rot=a.run('S.rot');
- a.run("bfSid='T';bfDate='2026-09-24';recordBenchmark('t8',0,'7.5',true);recordBenchmark('t2',0,'14',true);addPast()");
- assert.equal(a.run('S.history[0].secs'),7.5);assert.equal(a.run('S.history[0].reps'),14);assert.equal(a.run('S.prs.planche[0].value'),7.5);
- assert.deepEqual(a.json('S.today'),draft);assert.equal(a.run('S.rot'),rot);
 });
 test('failed save preserves prior benchmark log',()=>{
  const a=boot();a.run("pickSession('T');confirmSessionChange();recordBenchmark('t3',0,'3',false)");const before=a.json('S.today.log');
