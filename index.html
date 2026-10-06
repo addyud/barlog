@@ -1734,20 +1734,17 @@ function copyData(){
   }
 }
 
+// Browsers only share files of listed types: Chrome refuses .json but accepts plain text,
+// so the backup is shared as a .txt file holding the same JSON (restore reads either).
+// A share can't be retried after a failure (the tap no longer counts), so any failure
+// other than cancelling saves the file to Downloads instead.
 function shareData(){
-  if(!navigator.share){ toast("Sharing isn't available here — use Export file"); return; }
-  const t=snapshot(), name=backupName();
-  const quit=e=>{ if(!e||e.name==="AbortError")return; toast("Share failed — use Export file"); };
+  const name=backupName().replace(/\.json$/,".txt");
   let file=null;
-  try{ file=new File([t],name,{type:"application/json"}); }catch(e){}
-  if(file&&navigator.canShare&&navigator.canShare({files:[file]})){
-    navigator.share({files:[file],title:name}).then(markBackup,e=>{
-      if(e&&e.name==="AbortError")return;
-      navigator.share({title:name,text:t}).then(markBackup,quit);
-    });
-  }else{
-    navigator.share({title:name,text:t}).then(markBackup,quit);
-  }
+  try{ file=new File([snapshot()],name,{type:"text/plain"}); }catch(e){}
+  const saveInstead=()=>{ exportData(); toast("Couldn\u2019t share \u2014 saved to Downloads instead"); };
+  if(!navigator.share||!file||!navigator.canShare||!navigator.canShare({files:[file]})){ saveInstead(); return; }
+  navigator.share({files:[file],title:name}).then(markBackup,e=>{ if(!e||e.name!=="AbortError")saveInstead(); });
 }
 
 function applyBackup(text){
@@ -2083,7 +2080,7 @@ function viewData(){
     '</div>'+
     '<div class="sec">Restore</div>'+
     '<div class="note">Open a backup file, or paste its contents below. Either way it replaces everything currently stored.</div>'+
-    '<input type="file" id="importFile" accept="application/json,.json,text/plain" style="display:none" onchange="fileChosen(this)">'+
+    '<input type="file" id="importFile" accept="application/json,.json,text/plain,.txt" style="display:none" onchange="fileChosen(this)">'+
     '<div class="acts"><button class="btn" onclick="pickFile()">Import from file</button></div>'+
     '<textarea class="dump" id="importBox" placeholder="{ ... }"></textarea>'+
     '<div class="acts"><button class="btn ghost" onclick="importData()" style="flex:1">Restore from paste</button></div>'+
