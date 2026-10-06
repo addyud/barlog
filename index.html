@@ -73,6 +73,7 @@ button{font-family:inherit}
 .daily.toggle .dailyT,.daily.toggle .dailyS{display:block}
 .ex.wristOff .exN,.ex.wristOff .exT,.ex.wristOff .chips,.ex.wristOff .exNote{opacity:.45}
 .exLoad.wrist{color:var(--rust)}
+.ex.maxTest{border-left:2px solid var(--sodium);padding-left:12px}
 .box{width:17px;height:17px;flex-shrink:0;border-radius:2px;border:1px solid var(--galv);display:flex;align-items:center;justify-content:center;font-size:11px;color:var(--night)}
 .daily.on .box{background:var(--sodium);border-color:var(--sodium)}
 .dailyT{font-size:13px}
@@ -199,6 +200,7 @@ const DEFAULT_PLAN = [
       {
         "id": "a8",
         "n": "Tuck front lever",
+        "max": "lever",
         "tier": "skill",
         "sets": 5,
         "reps": 6,
@@ -250,6 +252,7 @@ const DEFAULT_PLAN = [
       {
         "id": "b3",
         "n": "Freestanding HSPU",
+        "max": "hspu",
         "wrist": "Do these on the bars, with a neutral wrist.",
         "tier": "main",
         "sets": 5,
@@ -348,6 +351,7 @@ const DEFAULT_PLAN = [
       {
         "id": "c8",
         "n": "Tuck front lever",
+        "max": "lever",
         "tier": "skill",
         "sets": 4,
         "reps": 6,
@@ -360,6 +364,7 @@ const DEFAULT_PLAN = [
       {
         "id": "c3",
         "n": "Pull ups",
+        "max": "pullup",
         "tier": "main",
         "sets": 4,
         "reps": 5,
@@ -426,6 +431,7 @@ const DEFAULT_PLAN = [
       {
         "id": "d11finger",
         "n": "Fingertip hold",
+        "max": "fingertip",
         "wrist": "Skip today.",
         "tier": "skill",
         "sets": 3,
@@ -439,6 +445,7 @@ const DEFAULT_PLAN = [
       {
         "id": "d12tuck",
         "n": "Tuck planche",
+        "max": "planche",
         "wrist": "On parallettes if you have them, or skip today.",
         "tier": "main",
         "sets": 4,
@@ -665,7 +672,7 @@ function weekText(date){ const w=calendarWeek(date); return w==null?"Before star
 function hasDraft(){ return Object.values(S.today.log||{}).some(a=>a.some(v=>v!=null)); }
 function refreshDraftDate(){
   if(!hasDraft()&&S.today.date!==dayKey()){
-    S.today.date=dayKey();S.today.rice=false;delete S.today.feel;delete S.today.feelEx;delete S.today.wristBreak;
+    S.today.date=dayKey();S.today.rice=false;delete S.today.feel;delete S.today.feelEx;delete S.today.wristBreak;delete S.today.maxTest;
     if(S.lightDate&&S.lightDate!==dayKey())endLightSession();
   }
 }
@@ -690,6 +697,69 @@ function setWristBreak(on){
   if(on)S.today.wristBreak=true; else delete S.today.wristBreak;
   if(!save()){ if(previous)S.today.wristBreak=true; else delete S.today.wristBreak; render(); return; }
   render();
+}
+/* ── max tests ──
+   A regular exercise with a `max` key pairs with the benchmark of that key. A max is due
+   when no result for it has been recorded in six weeks (or ever), at most one max in any
+   seven days, never on a light session or wrist break. The due benchmark goes in after the
+   warm-up of the first workout holding that exercise; that exercise runs light that day and
+   the day never counts toward its ladder. today.maxTest: undefined = automatic, a key =
+   chosen, false = switched off for this workout. */
+const MAX_EVERY_DAYS=42, MAX_GAP_DAYS=7;
+function lastMaxDate(key){ return (S.prs[key]||[]).map(x=>String(x.date)).sort().pop()||null; }
+function lastAnyMaxDate(){
+  const dates=Object.keys(S.prs).map(lastMaxDate).concat(S.history.filter(r=>r.maxTest).map(r=>String(r.date))).filter(Boolean).sort();
+  return dates.pop()||null;
+}
+function maxCandidates(s){
+  const t=S.plan.find(p=>p.testOnly); if(!t||s.testOnly)return [];
+  return s.ex.map(e=>({e,b:e.max&&t.ex.find(b=>b.amrap&&b.pr===e.max)})).filter(c=>c.b);
+}
+function maxDue(key){
+  const last=lastMaxDate(key);
+  return last==null||dateNumber(dayKey())-dateNumber(last)>=MAX_EVERY_DAYS;
+}
+function autoMaxKey(s){
+  if(S.today.wristBreak||S.targetMode==="reduced")return null;
+  const any=lastAnyMaxDate();
+  if(any&&dateNumber(dayKey())-dateNumber(any)<MAX_GAP_DAYS)return null;
+  const c=maxCandidates(s).find(c=>maxDue(c.e.max));
+  return c?c.e.max:null;
+}
+function maxTestToday(s){
+  const key=S.today.maxTest===undefined?autoMaxKey(s):S.today.maxTest;
+  return key?maxCandidates(s).find(c=>c.e.max===key)||null:null;
+}
+function todayExercises(s){
+  const m=maxTestToday(s); if(!m)return s.ex;
+  const i=s.ex.findIndex(e=>e.tier!=="prep"), at=i<0?s.ex.length:i;
+  return s.ex.slice(0,at).concat([{...m.b,maxTest:true}],s.ex.slice(at));
+}
+function setMaxTest(v){
+  const s=sess(), previous=S.today.maxTest;
+  if(v===false)S.today.maxTest=false;
+  else if(v===true){ const c=maxCandidates(s); if(!c.length)return; S.today.maxTest=(c.find(c=>maxDue(c.e.max))||c[0]).e.max; }
+  else if(maxCandidates(s).some(c=>c.e.max===v))S.today.maxTest=v;
+  else return;
+  if(!save()){ if(previous===undefined)delete S.today.maxTest; else S.today.maxTest=previous; render(); return; }
+  render();
+}
+const benchName=b=>{ const n=b.n.replace(/^Max /,""); return n.charAt(0).toUpperCase()+n.slice(1); };
+function maxControl(s){
+  const c=maxCandidates(s); if(!c.length)return "";
+  const m=maxTestToday(s), on=!!m, auto=S.today.maxTest===undefined;
+  const ago=key=>{ const d=lastMaxDate(key); if(!d)return "no max recorded yet"; const w=Math.floor((dateNumber(dayKey())-dateNumber(d))/7); return "last max "+(w<1?"this week":w===1?"a week ago":w+" weeks ago"); };
+  let sub;
+  if(on)sub=(auto?"Due: ":"")+benchName(m.b)+", "+ago(m.e.max)+". Goes in after the warm-up; "+m.e.n+" runs light today and the day doesn\u2019t count toward its ladder.";
+  else if(S.today.maxTest===false)sub="Skipped for this workout. It comes back when next due.";
+  else if(S.today.wristBreak)sub="Not on a wrist break. Switch on to test anyway.";
+  else if(S.targetMode==="reduced")sub="Not on a light session. Switch on to test anyway.";
+  else if(c.some(x=>maxDue(x.e.max)))sub="Not today: a max was tested in the last week.";
+  else sub="Nothing due. "+c.map(x=>benchName(x.b)+": "+ago(x.e.max)).join("; ")+".";
+  let h='<button class="daily toggle'+(on?" on":"")+'" role="switch" aria-checked="'+on+'" onclick="setMaxTest('+(!on)+')">'+
+    '<span class="box">'+(on?"\u2713":"")+'</span><span><span class="dailyT">Test a max today</span><span class="dailyS">'+esc(sub)+'</span></span></button>';
+  if(on&&c.length>1)h+='<div class="chips" style="margin-top:8px">'+c.map(x=>'<button class="chip'+(x.e.max===m.e.max?' on':'')+'" aria-pressed="'+(x.e.max===m.e.max)+'" onclick="setMaxTest(\''+x.e.max+'\')">'+esc(benchName(x.b))+'</button>').join('')+'</div>';
+  return h;
 }
 function wristControl(){
   const on=!!S.today.wristBreak;
@@ -844,6 +914,14 @@ function addWristCues(plan){
     if(def&&WRIST_CUES[e.id]&&e.n===def.n&&e.wrist===undefined)e.wrist=WRIST_CUES[e.id];
   }
 }
+// Regular exercises that have a benchmark get its key, added once where still the default.
+const MAX_KEYS={"a8": "lever", "c8": "lever", "b3": "hspu", "c3": "pullup", "d11finger": "fingertip", "d12tuck": "planche"};
+function addMaxKeys(plan){
+  for(const p of plan)for(const e of p.ex){
+    const def=DEFAULT_PLAN.find(x=>x.id===p.id)?.ex.find(x=>x.id===e.id);
+    if(def&&MAX_KEYS[e.id]&&e.n===def.n&&e.max===undefined)e.max=MAX_KEYS[e.id];
+  }
+}
 // One-time repairs for saved plans, applied in order. Each stores its key once it has run,
 // so later deliberate edits stick. v4Only patches leave older, unadopted routines alone.
 const PLAN_PATCHES=[
@@ -857,6 +935,7 @@ const PLAN_PATCHES=[
   {key:"dipsCopyVersion",v4Only:true,apply:updateDipsCopy},
   {key:"gripAlternationVersion",v4Only:true,apply:addGripAlternation},
   {key:"wristCuesVersion",v4Only:true,apply:addWristCues},
+  {key:"maxKeysVersion",v4Only:true,apply:addMaxKeys},
 ];
 function patchFlags(value){ return Object.fromEntries(PLAN_PATCHES.map(p=>[p.key,value(p.key)])); }
 // `saved` is the stored record (state, backup or archive) whose flags say what already ran.
@@ -1031,7 +1110,7 @@ function ladderExposures(members,max){
     for(const m of members){
       if(r.sid!==m.sid||!r.detail)continue;
       const x=r.detail.find(d=>d.id?d.id===m.e.id:d.n===m.e.n&&d.unit===m.e.unit);
-      if(x&&x.sets&&x.sets.length&&!(r.wristBreak&&m.e.wrist))out.push({date:String(r.date),x,r,m});
+      if(x&&x.sets&&x.sets.length&&!(r.wristBreak&&m.e.wrist)&&!(r.maxTest&&m.e.max===r.maxTest))out.push({date:String(r.date),x,r,m});
     }
     if(out.length>=max)break;
   }
@@ -1283,7 +1362,7 @@ function coachSummary(weeks=6){
   rows.forEach(r=>{
     const next=SORENESS[r.soreness]?"; next day: "+SORENESS[r.soreness].toLowerCase():"";
     const feel=" ["+(FEELS[r.feel]?FEELS[r.feel]+(r.feelEx&&r.feelEx.length?": "+r.feelEx.map(id=>((r.detail||[]).find(x=>x.id===id)||{}).n||id).join(", "):""):"not rated")+next+"]";
-    L.push(r.date+" "+r.sid+(r.targetMode==="reduced"?" light session":"")+(r.wristBreak?" wrist break":"")+(r.manual?" (logged later)":"")+feel);
+    L.push(r.date+" "+r.sid+(r.targetMode==="reduced"?" light session":"")+(r.wristBreak?" wrist break":"")+(r.maxTest&&PRS[r.maxTest]?" (max test: "+PRS[r.maxTest][0].toLowerCase()+")":"")+(r.manual?" (logged later)":"")+feel);
     (r.detail||[]).filter(x=>x.unit!=="min").forEach(x=>{
       const missed=Array.isArray(x.target)&&!metTarget(x);
       L.push("  "+x.n+(x.variant?" ("+x.variant.toLowerCase()+")":"")+": "+x.sets.join(",")+(x.unit==="reps"?"":x.unit)+(missed?" (target "+x.target.join(",")+")":"")+(x.band?" band "+x.band:""));
@@ -1421,7 +1500,7 @@ function benchmarkField(e,idx,value,past){
 }
 function recordBenchmark(exId,idx,raw,past){
   const plan=past?S.plan.find(p=>p.id===bfSid):sess();
-  const e=plan&&plan.ex.find(e=>e.id===exId);if(!e||!e.amrap)return;
+  const e=plan&&(past?plan.ex:todayExercises(plan)).find(e=>e.id===exId);if(!e||!e.amrap)return;
   const n=Number(raw), valid=raw.trim()!==''&&Number.isFinite(n)&&n>=0&&(e.unit!=='reps'||Number.isInteger(n));
   const log=past?bfLog:S.today.log, previous=JSON.parse(JSON.stringify(log));
   if(!past)refreshDraftDate();
@@ -1465,13 +1544,13 @@ function confirmSessionChange(){
   const chosen=S.plan.find(p=>p.id===pendingSession);
   if(!chosen||hasDraft()){cancelSessionChange();return;}
   const previous=JSON.parse(JSON.stringify(S.today));
-  S.today.sid=chosen.id;S.today.selectionConfirmed=true;
+  S.today.sid=chosen.id;S.today.selectionConfirmed=true;delete S.today.maxTest;
   if(!save()){S.today=previous;render();return;}
   pendingSession=null;stopTimer();render();
   document.getElementById('workoutTitle')?.focus?.();
 }
 function toggleRice(){ S.today.rice=!S.today.rice; commit(); }
-function clearDay(){ stopTimer(); S.today.log={}; S.today.band={}; delete S.today.feel; delete S.today.feelEx; delete S.today.wristBreak; commit(); }
+function clearDay(){ stopTimer(); S.today.log={}; S.today.band={}; delete S.today.feel; delete S.today.feelEx; delete S.today.wristBreak; delete S.today.maxTest; commit(); }
 function setTodayBand(id,v){ if(!S.today.band)S.today.band={}; S.today.band[id]=v; save(); }
 function cycleAlert(){ const o=["vibrate","sound","off"]; S.alert=o[(o.indexOf(S.alert)+1)%3]; commit(); }
 
@@ -1479,10 +1558,11 @@ function finish(){
   refreshDraftDate();
   const s=sess(), log=S.today.log;
   const before=JSON.parse(JSON.stringify(S));
-  if(!s.ex.some(e=>(log[e.id]||[]).some(v=>typeof v==="number")))return;
+  if(!todayExercises(s).some(e=>(log[e.id]||[]).some(v=>typeof v==="number")))return;
   let reps=0, secs=0;
   const detail=[];
-  s.ex.forEach(e=>{
+  const maxed=maxTestToday(s);
+  todayExercises(s).forEach(e=>{
     const vals=(log[e.id]||[]).filter(v=>typeof v==="number");
     if(!vals.length)return;
     const sum=vals.reduce((a,b)=>a+b,0);
@@ -1498,11 +1578,13 @@ function finish(){
   openHist=-1;
   const feel=FEELS[S.today.feel]?{feel:S.today.feel,...(S.today.feelEx&&S.today.feelEx.length?{feelEx:S.today.feelEx.slice()}:{})}:{};
   if(S.today.wristBreak)feel.wristBreak=true;
+  if(maxed)feel.maxTest=maxed.e.max;
   S.history.unshift({date:S.today.date||dayKey(),finishedAt:new Date().toISOString(),sid:s.id,week:calendarWeek(S.today.date||dayKey()),weekSource:"calendar",targetMode:S.targetMode,reps:reps,secs:secs,detail:detail,...feel,...(S.today.rice?{rice:true}:{})});
   // Keep older entries; backups include the complete history.
   if(!s.testOnly)advanceAfter(s.id);
   const pend=S.progress.pending[s.id];
-  if(!(S.today.wristBreak&&pend&&(s.ex.find(e=>e.id===pend.id)||{}).wrist))delete S.progress.pending[s.id];
+  const pendEx=pend&&s.ex.find(e=>e.id===pend.id)||{};
+  if(!(S.today.wristBreak&&pendEx.wrist)&&!(maxed&&pendEx.max===maxed.e.max))delete S.progress.pending[s.id];
   endLightSession();
   S.today={date:dayKey(),sid:nextId(),log:{},band:{},rice:S.today.rice};
   if(!save()){S=before;render();return;}
@@ -1912,7 +1994,7 @@ function viewLast(sid,e){
   if(!seen.length)return "";
   return '<div class="exLast">'+seen.map(({date,x,r},i)=>
     '<div><span>'+(i?"Before":"Last")+' '+esc(shortD(date))+'</span> '+esc(x.sets.join(", "))+esc(x.unit==="reps"?"":x.unit)+
-    (x.variant?' <span>· '+esc(x.variant.toLowerCase())+'</span>':'')+(r.wristBreak&&e.wrist?' <span>· wrist break</span>':'')+
+    (x.variant?' <span>· '+esc(x.variant.toLowerCase())+'</span>':'')+(r.wristBreak&&e.wrist?' <span>· wrist break</span>':'')+(r.maxTest&&e.max===r.maxTest?' <span>· max day</span>':'')+
     (x.band?' <span>· band '+esc(x.band)+'</span>':'')+'</div>').join("")+'</div>';
 }
 
@@ -1943,14 +2025,16 @@ function viewTrain(ph){
   if(s.note)h+='<div class="note">'+esc(s.note)+'</div>';
   h+='<div class="note">Rest days as needed. If shoulder ache returns, stop that movement and ease off next time; get it checked if it keeps coming back.</div>';
 
-  const steps=s.testOnly?{}:sessionProgress(s);
-  s.ex.forEach(e=>{
-    const w=calendarWeek(S.today.date||dayKey());
-    const tg=setTargets(e,w), cnt=tg.length, tgt=repsFor(e,w), log=S.today.log[e.id]||[];
+  const steps=s.testOnly?{}:sessionProgress(s), maxed=maxTestToday(s);
+  todayExercises(s).forEach(e=>{
+    const w=calendarWeek(S.today.date||dayKey()), light=maxed&&e===maxed.e;
+    const tg=setTargets(e,w,light?"reduced":S.targetMode), cnt=tg.length, tgt=repsFor(e,w), log=S.today.log[e.id]||[];
     const done=log.filter(v=>v!=null).length;
     const wristOff=!!(S.today.wristBreak&&e.wrist);
-    h+='<div class="ex'+(wristOff?' wristOff':'')+'"><div class="exTop"><div class="exN">'+esc(e.n)+(e.optional?' · optional':'')+'</div><div class="exT">'+
+    h+='<div class="ex'+(wristOff?' wristOff':'')+(e.maxTest?' maxTest':'')+'"><div class="exTop"><div class="exN">'+esc(e.n)+(e.maxTest?' · test':e.optional?' · optional':'')+'</div><div class="exT">'+
        (e.amrap?"record actual":e.budget?tgt+"min total incl. rest":fmtTargets(tg,e))+(e.rest?" · "+mmss(e.rest)+" rest":"")+'</div></div>';
+    if(e.maxTest)h+='<div class="exLoad">Fresh, straight after the warm-up. One clean attempt, then the session as planned.</div>';
+    if(light)h+='<div class="exLoad">Light today after the max: '+esc(fmtTargets(tg,e))+'. Doesn\u2019t count toward the ladder.</div>';
     if(wristOff)h+='<div class="exLoad wrist">Wrist break: '+esc(wristCue(e))+'</div>';
     const variant=nextVariant(s.id,e);
     if(variant)h+='<div class="exLoad">This session: '+esc(variant)+'</div>';
@@ -1975,8 +2059,8 @@ function viewTrain(ph){
     h+='</div>';
   });
 
-  const any=s.ex.some(e=>(S.today.log[e.id]||[]).some(v=>v!=null));
-  if(!s.testOnly)h+=wristControl()+lightControl();
+  const any=todayExercises(s).some(e=>(S.today.log[e.id]||[]).some(v=>v!=null));
+  if(!s.testOnly)h+=maxControl(s)+wristControl()+lightControl();
   if(any&&!s.testOnly)h+=viewFeel(s);
   h+='<div class="acts"><button id="finishSession" class="btn" '+(any?"":"disabled")+' onclick="finish()">Finish session</button>'+
      '<button class="btn ghost" onclick="clearDay()">Clear</button></div>';
@@ -2009,7 +2093,7 @@ function viewHistory(){
     if(openHist===i){
       h+='<div style="padding:6px 0 12px 68px;border-bottom:1px solid var(--steel)">';
       if(r.weekSource!=="calendar"&&r.week!=null)h+='<div class="note">Original logged label: week '+esc(r.week)+'. Calendar label above comes from the workout date.</div>';
-      if(r.targetMode)h+='<div class="note">'+(r.targetMode==="reduced"?'Light session':'Full session')+(FEELS[r.feel]?' · '+esc(FEELS[r.feel])+(r.feelEx&&r.feelEx.length?': '+esc(r.feelEx.map(id=>(r.detail||[]).find(x=>x.id===id)?.n||id).join(', ')):''):'')+(r.wristBreak?' · Wrist break':'')+(SORENESS[r.soreness]?' · next day '+esc(SORENESS[r.soreness].toLowerCase()):'')+'</div>';
+      if(r.targetMode)h+='<div class="note">'+(r.targetMode==="reduced"?'Light session':'Full session')+(FEELS[r.feel]?' · '+esc(FEELS[r.feel])+(r.feelEx&&r.feelEx.length?': '+esc(r.feelEx.map(id=>(r.detail||[]).find(x=>x.id===id)?.n||id).join(', ')):''):'')+(r.wristBreak?' · Wrist break':'')+(r.maxTest&&PRS[r.maxTest]?' · Max test: '+esc(PRS[r.maxTest][0]):'')+(SORENESS[r.soreness]?' · next day '+esc(SORENESS[r.soreness].toLowerCase()):'')+'</div>';
       if(r.note)h+='<div style="font-size:12px;color:var(--galv);padding:0 0 8px;line-height:1.45">'+esc(r.note)+'</div>';
       if(r.rice)h+='<div style="font-size:11px;color:var(--sodium);padding:0 0 8px">Rice bag ✓</div>';
       if(hasD)r.detail.forEach(x=>{
