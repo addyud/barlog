@@ -913,7 +913,11 @@ const LADDERS={
   a8:LEVER_LADDER, c8:LEVER_LADDER,
   b3:{unit:"reps",mode:"one",step:1,top:2,clean:1,next:"5 \u00d7 2 reached. Pick the next step yourself: more reps, deficit depth or a harder variation."},
   b10dips:{unit:"reps",mode:"one",step:1,top:8,clean:2,next:"3 \u00d7 8 reached. Reassess whether dips stay before adding more."},
-  b11push:{unit:"reps",mode:"one",step:1,top:15,clean:1,next:"3 \u00d7 15 reached. Move to a harder push up variation."},
+  // stages list the variations in order; at the top the milestone offers the next one.
+  b11push:{unit:"reps",mode:"one",step:1,top:15,clean:1,next:"3 \u00d7 15 reached. Move to the next variation.",
+    stages:[{n:"Push ups"},
+      {n:"Pike push ups",reps:8,note:"Hips high, head toward the floor between the hands, elbows tracking back. A rep or two in reserve."},
+      {n:"Elevated pike push ups",reps:8,note:"Feet on a box or bar, hips over the hands, head to the floor. A rep or two in reserve."}]},
   b12er:ER_LADDER, d14er:ER_LADDER,
   c3:{unit:"reps",mode:"one",step:1,top:6,clean:2,next:"4 \u00d7 6 reached. Reassess difficulty before adding sets."},
   c6:{unit:"reps",mode:"one",step:1,top:8,clean:2,next:"3 \u00d7 8 reached. Time for a harder variation."},
@@ -1024,7 +1028,8 @@ function exerciseProgress(sid,e){
   const up=moves(1);
   if(!own(up)&&!up.length){
     const sig=members.map(m=>fullTargets(m.e).join(",")).join("/");
-    return {...base,kind:S.progress.acks[base.pool]===sig?"top":"milestone",sig,key:key("milestone")};
+    const stages=r.stages||[], at=stages.findIndex(x=>x.n===e.n), swap=at>=0?stages[at+1]:null;
+    return {...base,kind:S.progress.acks[base.pool]===sig?"top":"milestone",sig,...(swap?{swap}:{}),key:key("milestone")};
   }
   return {...base,kind:"up",moves:up,to:own(up)||t,key:key("up")};
 }
@@ -1074,6 +1079,12 @@ function stepAction(exId,action){
   }else if(action==="ack"&&p.kind==="milestone"){
     S.progress.acks[p.pool]=p.sig; progressNote(s.id,p.from,null,"milestone",e);
     msg="Milestone noted · "+e.n;
+  }else if(action==="swap"&&p.kind==="milestone"&&p.swap){
+    const to=Array(e.sets).fill(p.swap.reps), was=e.n;
+    applyTargets(e,to); e.n=p.swap.n; if(p.swap.note)e.note=p.swap.note;
+    progressNote(s.id,p.from,to,"swap",{...e,n:was+" \u2192 "+e.n}); S.progress.pending[s.id]={id:e.id,date:dayKey()};
+    delete S.progress.acks[p.pool];
+    msg="Switched \u00b7 "+e.n+" "+fmtTargets(to,e,true);
   }else if(action==="reset"&&p.kind==="milestone"&&p.rule.reset){
     change(ladderMembers(s.id,e).map(m=>({...m,from:fullTargets(m.e),to:Array(m.e.sets).fill(p.rule.reset)})),"reset");
     delete S.progress.acks[p.pool];
@@ -1096,7 +1107,8 @@ function viewStep(s,e,p,logged){
     if(p.kind==="up")return '<div class="step"><b>Ready to step up.</b> '+sessions(p.need)+esc(across)+' at '+from+'. Next: '+to+'.'+esc(also)+
       '<div class="rowBtns">'+btn("accept","Step up",true)+btn("later","Not yet")+'</div></div>';
     if(p.kind==="milestone")return '<div class="step"><b>Milestone.</b> '+esc(p.rule.next)+
-      '<div class="rowBtns">'+(p.rule.reset?btn("reset","Switched · reset to "+esc(fmtTargets(Array(e.sets).fill(p.rule.reset),e,true)),true):"")+btn("ack","Got it",!p.rule.reset)+'</div></div>';
+      '<div class="rowBtns">'+(p.swap?btn("swap","Switch to "+esc(p.swap.n)+" \u00b7 "+esc(fmtTargets(Array(e.sets).fill(p.swap.reps),e,true)),true):"")+
+      (p.rule.reset?btn("reset","Switched \u00b7 reset to "+esc(fmtTargets(Array(e.sets).fill(p.rule.reset),e,true)),true):"")+btn("ack","Got it",!p.rule.reset&&!p.swap)+'</div></div>';
   }
   let line;
   if(p.kind==="top")line="Top of this ladder. Change the exercise in Edit when you move on.";
@@ -1974,7 +1986,7 @@ function viewHistory(){
   return h;
 }
 
-const STEP_KINDS={up:"Stepped up",back:"Stepped back",reset:"Reset",milestone:"Milestone"};
+const STEP_KINDS={up:"Stepped up",back:"Stepped back",reset:"Reset",swap:"Switched",milestone:"Milestone"};
 function viewSteps(){
   const log=S.progress.log.slice(0,8);
   let h='<div class="sec">Step ups and milestones</div>';
