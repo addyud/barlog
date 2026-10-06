@@ -272,4 +272,25 @@ test('grip alternation is added once to saved default pull ups and treats older 
  assert.equal(boot(later).run(`S.plan[2].ex.find(e=>e.id==='c3').alt`),undefined,'a deliberate removal sticks');
  const bad=a.json('S');bad.plan[2].ex.find(e=>e.id==='c3').alt=['Only one'];assert.equal(boot(bad).run(`nextVariant('C',S.plan[2].ex.find(e=>e.id==='c3'))`),null);
 });
+test('the push-up milestone offers pike push ups, then elevated pike, then only Got it',()=>{
+ const a=boot();const push=()=>ex(a,'B','b11push');
+ a.run(`S.plan[1].ex.find(e=>e.id==='b11push').reps=15`);train(a,'B',['b11push'],'clean');a.run(`S.today.sid='B'`);
+ let p=steps(a,'B').b11push;assert.equal(p.kind,'milestone');assert.equal(p.swap.n,'Pike push ups');
+ assert.match(a.run('viewTrain(phase())'),/Switch to Pike push ups · 3 × 8/);
+ a.run(`stepAction('b11push','swap')`);
+ assert.equal(push().n,'Pike push ups');assert.equal(push().reps,8);assert.match(push().note,/Hips high/);assert.equal(push().sets,3);
+ assert.deepEqual(a.json('S.progress.log[0]'),{date:'2026-09-25',sid:'B',id:'b11push',n:'Push ups → Pike push ups',kind:'swap',from:'3 × 15',to:'3 × 8'});
+ assert.equal(a.run('S.progress.pending.B.id'),'b11push');assert.equal(steps(a,'B').b11push.kind,'wait','the climb restarts');
+ assert.match(a.run('viewProgress()'),/Push ups → Pike push ups<\/span> · Switched · 3 × 15 → 3 × 8/);
+ assert.match(a.run('coachSummary()'),/- Pike push ups: 3 × 8, rest 90s, ladder top 15/);
+ a.run(`S.plan[1].ex.find(e=>e.id==='b11push').reps=15`);train(a,'B',['b11push'],'clean');a.run(`S.today.sid='B'`);
+ p=steps(a,'B').b11push;assert.equal(p.swap.n,'Elevated pike push ups');a.run(`stepAction('b11push','swap')`);assert.equal(push().n,'Elevated pike push ups');
+ a.run(`S.plan[1].ex.find(e=>e.id==='b11push').reps=15`);train(a,'B',['b11push'],'clean');a.run(`S.today.sid='B'`);
+ p=steps(a,'B').b11push;assert.equal(p.kind,'milestone');assert.equal(p.swap,undefined,'end of the chain');
+ const html=a.run('viewTrain(phase())');assert.ok(!html.includes("'swap'"));assert.match(html,/Got it/);
+ a.run(`stepAction('b11push','swap')`);assert.equal(push().n,'Elevated pike push ups','nothing to swap to');
+ const b=boot();b.run(`const e=S.plan[1].ex.find(x=>x.id==='b11push');e.n='Diamond push ups';e.reps=15`);train(b,'B',['b11push'],'clean');b.run(`S.today.sid='B'`);
+ assert.equal(steps(b,'B').b11push.swap,undefined,'a renamed exercise is not in the chain');
+ const before=b.json('S');b.fail(true);b.run(`stepAction('b11push','ack')`);assert.deepEqual(b.json('S'),before);
+});
 console.log(`${passed} progression groups passed.`);
