@@ -209,15 +209,92 @@ test('max tests wait six weeks per lift, step aside for light sessions and wrist
  assert.equal(b.run(`S.plan[2].ex.find(e=>e.id==='c8').max`),'lever');assert.equal(b.run('S.maxKeysVersion'),1);
  assert.equal(boot().run(`S.today.sid='T';maxControl(sess())`),'','no switch on the benchmark session');
 });
+test('planche work stays in on a wrist break: hinted, not dimmed, counting toward its ladder',()=>{
+ const a=boot();a.run(`S.today.sid='D';S.today.maxTest=false;setWristBreak(true)`);let html=a.run('viewTrain(phase())');
+ assert.match(html,/<div class="ex"><div class="exTop"><div class="exN">Tuck planche/,'not dimmed');
+ assert.match(html,/Tuck planche.*?<div class="exLoad">Wrist break: Parallettes or fists if the wrist complains\./s);
+ assert.match(html,/Feet-on-ground planche lean.*?<div class="exLoad">Wrist break: Parallettes or fists if the wrist complains\./s);
+ assert.match(html,/<div class="ex wristOff"><div class="exTop"><div class="exN">Fingertip hold/,'palms-down one-arm work still dropped');
+ assert.equal(a.run('viewWristSwap(sess())'),'','D keeps 4 of 6, so no swap is offered');
+ assert.match(html,/Planche work stays in, on parallettes or fists if needed\./);
+ a.run(`S.today.sid='C'`);assert.match(a.run('viewTrain(phase())'),/Planche lean \(light\).*?<div class="exLoad">Wrist break: Parallettes or fists/s);
+ a.run(`S.today.sid='D';[0,1,2,3].forEach(i=>logSet('d12tuck',i,5));setFeel('clean');finish()`);
+ assert.equal(a.run('S.history[0].wristBreak'),true);
+ assert.equal(a.run('ladderExposures(ladderMembers("D",S.plan[3].ex.find(e=>e.id==="d12tuck")),5).length'),1,'a wrist-break planche session counts');
+ assert.ok(!/Tuck planche.*?· wrist break/s.test(a.run(`S.today.sid='D';S.today.maxTest=false;viewTrain(phase())`)),'no wrist-break tag in Last on the planche row');
+ a.run('setWristBreak(true)');
+ a.run(`editField('D','d12tuck','wristNote','')`);assert.equal(a.run(`S.plan[3].ex.find(e=>e.id==='d12tuck').wristNote`),undefined);
+ html=a.run('viewTrain(phase())');assert.ok(!html.slice(html.indexOf('>Tuck planche<'),html.indexOf('>Feet-on-ground planche lean<')).includes('Wrist break:'),'a cleared hint stays cleared');
+});
+test('saved planche wrist cues become the soft hint once, by id, and renamed stages too',()=>{
+ const a=boot();const saved=a.json('S');delete saved.plancheWristVersion;
+ for(const p of saved.plan)for(const e of p.ex)if(['c10lean','d12tuck','d9lean'].includes(e.id)){delete e.wristNote;e.wrist='On parallettes if you have them, or skip today.';}
+ saved.plan[3].ex.find(e=>e.id==='d12tuck').n='Flat tuck planche';
+ saved.plan[3].ex.find(e=>e.id==='d9lean').wrist='Skip today.';
+ const b=boot(saved);assert.equal(b.run('S.plancheWristVersion'),1);
+ const d=id=>b.json(`S.plan[3].ex.find(e=>e.id==='${id}')`);
+ assert.equal(d('d12tuck').wrist,undefined);assert.equal(d('d12tuck').wristNote,'Parallettes or fists if the wrist complains.','renamed stage converted by id');
+ assert.equal(b.json(`S.plan[2].ex.find(e=>e.id==='c10lean')`).wristNote,'Parallettes or fists if the wrist complains.');
+ assert.equal(d('d9lean').wrist,'Skip today.','an edited cue is left alone');assert.equal(d('d9lean').wristNote,undefined);
+ const old=a.json('S');delete old.wristCuesVersion;delete old.plancheWristVersion;for(const p of old.plan)for(const e of p.ex){delete e.wrist;delete e.wristNote;}
+ const c=boot(old);assert.equal(c.json(`S.plan[3].ex.find(e=>e.id==='d12tuck')`).wrist,undefined,'wrist cues no longer land on planche work');
+ assert.equal(c.json(`S.plan[3].ex.find(e=>e.id==='d11finger')`).wrist,'Skip today.');
+});
+test('on a wrist break, one-arm prep offers parallettes or a ring alternative, chosen on the day',()=>{
+ const a=boot();a.run(`S.today.sid='D';S.today.maxTest=false;setWristBreak(true)`);let html=a.run('viewTrain(phase())');
+ assert.match(html,/OAHS straddle shifts.*?Wrist break: Parallettes if the wrist allows, or swap\..*?setWristPick\('d8shifts','para'\)">On parallettes<.*?setWristPick\('d8shifts','alt'\)">Swap: Ring support shifts</s);
+ assert.match(html,/Fingertip hold.*?Wrist break: Swap, or skip today\..*?setWristPick\('d11finger','alt'\)">Swap: One-arm ring support lean</s);
+ assert.ok(!/Fingertip hold.*?On parallettes</s.test(html.slice(html.indexOf('>Fingertip hold<'),html.indexOf('>Tuck planche<'))),'fingertip holds cannot move to parallettes');
+ assert.equal(a.run('viewWristSwap(sess())'),'','nothing is dropped outright, so no workout swap');
+ // Parallettes keeps the exercise, undimmed, logged with a variant, still outside the ladder.
+ a.run(`setWristPick('d8shifts','para')`);html=a.run('viewTrain(phase())');
+ assert.match(html,/<div class="ex"><div class="exTop"><div class="exN">OAHS straddle shifts.*?Wrist break: on parallettes today\. Doesn’t count toward the ladder\..*?setWristPick\('d8shifts',null\)">Undo</s);
+ assert.equal(a.run(`setWristPick('d11finger','para');JSON.stringify(S.today.wristPick)`),'{"d8shifts":"para"}','no parallettes option without wristPara');
+ // The alternative takes the row, logs under its own id and names itself in the check-in.
+ a.run(`setWristPick('d11finger','alt')`);html=a.run('viewTrain(phase())');
+ assert.match(html,/<div class="ex wristAlt"><div class="exTop"><div class="exN">One-arm ring support lean<\/div><div class="exT">3 × up to 5s · 1:00 rest/);
+ assert.match(html,/Wrist break: instead of Fingertip hold today\./);assert.ok(!html.includes('>Fingertip hold<'));
+ a.run(`logSet('d11finger@wrist',0,5);logSet('d11finger@wrist',1,5);logSet('d11finger@wrist',2,5);logSet('d8shifts',0,3)`);
+ assert.equal(a.run(`S.today.log['d11finger@wrist'].join()`),'5,5,5');
+ a.run(`setWristPick('d11finger',null)`);assert.equal(a.run('S.today.wristPick.d11finger'),'alt','a row with logged sets keeps its choice');
+ a.run('setWristBreak(false)');assert.equal(a.run('S.today.wristBreak'),true,'the break stays on while alternative sets are logged');
+ assert.match(a.run('setFeel("ache");viewFeel(sess())'),/toggleFeelEx\('d11finger@wrist'\)">One-arm ring support lean/);
+ a.run(`toggleFeelEx('d11finger@wrist');finish()`);
+ const r=a.json('S.history[0]');
+ assert.deepEqual(r.detail.map(x=>[x.id,x.n,x.sets.join(),x.variant||'']),[['d8shifts','OAHS straddle shifts','3','Parallettes'],['d11finger@wrist','One-arm ring support lean','5,5,5','']]);
+ assert.equal(r.wristBreak,true);assert.deepEqual(r.feelEx,['d11finger@wrist']);assert.equal(a.run('S.today.wristPick'),undefined);
+ assert.equal(a.run('ladderExposures(ladderMembers("D",S.plan[3].ex.find(e=>e.id==="d11finger")),5).length'),0,'neither the parallettes session nor the alternative counts for the fingertip ladder');
+ assert.match(a.run('coachSummary()'),/D wrist break \[Ache: One-arm ring support lean\]\n  One-arm ring support lean: 5,5,5s/);
+ // Next time the alternative is picked, its own Last line shows.
+ a.run(`S.today.sid='D';S.today.maxTest=false;setWristBreak(true);setWristPick('d11finger','alt')`);
+ assert.match(a.run('viewTrain(phase())'),/One-arm ring support lean.*?Last 25\/09<\/span> 5, 5, 5s/s);
+ a.run('clearDay()');assert.equal(a.run('S.today.wristPick'),undefined,'clear resets the choices');
+ a.run(`setWristBreak(true);setWristPick('d8shifts','para')`);a.time('2026-09-26T08:00:00');a.run('refreshCalendarDay()');assert.equal(a.run('S.today.wristPick'),undefined,'an unused choice ends with the day');
+ a.run(`setWristBreak(true);setWristPick('d8shifts','para');setWristBreak(false)`);assert.equal(a.run('S.today.wristPick'),undefined,'ending the break clears the choices');
+ const before=a.json('S');a.fail(true);a.run(`setWristBreak(true)`);a.run(`setWristPick('d8shifts','para')`);assert.deepEqual(a.json('S'),before);
+});
+test('wrist alternatives are added once to saved default one-arm prep and respect renames',()=>{
+ const a=boot();const saved=a.json('S');delete saved.wristAltVersion;
+ for(const p of saved.plan)for(const e of p.ex){delete e.wristAlt;delete e.wristPara;}
+ saved.plan[0].ex.find(e=>e.id==='a9balance').n='Handstand play';
+ const b=boot(saved);assert.equal(b.run('S.wristAltVersion'),1);
+ assert.equal(b.json(`S.plan[3].ex.find(e=>e.id==='d8shifts')`).wristAlt.n,'Ring support shifts');assert.equal(b.json(`S.plan[3].ex.find(e=>e.id==='d8shifts')`).wristPara,true);
+ assert.equal(b.json(`S.plan[3].ex.find(e=>e.id==='d11finger')`).wristAlt.n,'One-arm ring support lean');assert.equal(b.json(`S.plan[3].ex.find(e=>e.id==='d11finger')`).wristPara,undefined);
+ assert.equal(b.json(`S.plan[0].ex.find(e=>e.id==='a9balance')`).wristAlt,undefined,'renamed exercise untouched');
+ assert.equal(b.json(`S.plan[2].ex.find(e=>e.id==='c9balance')`).wristAlt.n,'Ring support shifts');
+ b.run(`editField('D','d11finger','wristAlt','')`);assert.equal(b.json(`S.plan[3].ex.find(e=>e.id==='d11finger')`).wristAlt,undefined);
+ assert.match(b.run(`S.today.sid='D';S.today.maxTest=false;setWristBreak(true);viewTrain(phase())`),/Fingertip hold.*?Wrist break: Skip today\./s);
+});
 test('a wrist break that drops most of a workout offers the longest-waiting hanging workout instead',()=>{
  const a=boot(null,'2026-10-06T08:00:00');
  a.run(`S.history=[{date:'2026-09-30',sid:'A',detail:[]},{date:'2026-10-02',sid:'C',detail:[]},{date:'2026-10-04',sid:'B',detail:[]}];syncNext()`);
+ a.run(`['d12tuck','d9lean','d13support','d14er'].forEach(id=>editField('D',id,'wrist',true))`); // one-arm prep has alternatives, so D drops nothing by default; make it 4 of 6
  assert.equal(a.run('S.today.sid'),'D');assert.equal(a.run('viewWristSwap(sess())'),'','nothing without the break');
  a.run('setWristBreak(true)');let html=a.run('viewTrain(phase())');
  assert.match(html,/Wrist break drops 4 of 6 exercises here\.<\/b> Train A · Pull \/ front lever instead\? D comes back next time\./,'A has waited longest of the hanging workouts');
  assert.match(html,/onclick="switchForWrist\('A'\)">Train A today/);
  a.run(`S.today.sid='B'`);assert.equal(a.run('viewWristSwap(sess())'),'','B keeps most of its work (2 of 5 dropped)');
- a.run(`S.today.sid='C'`);assert.equal(a.run('viewWristSwap(sess())'),'','C keeps 2 of 4');
+ a.run(`S.today.sid='C'`);assert.equal(a.run('viewWristSwap(sess())'),'','C drops nothing');
  a.run(`S.today.sid='D';switchForWrist('C')`);assert.equal(a.run('S.today.sid'),'D','only the offered workout is accepted');
  a.run(`switchForWrist('A')`);assert.equal(a.run('S.today.sid'),'A');assert.equal(a.run('S.today.selectionConfirmed'),true);assert.equal(a.run('S.today.wristBreak'),true,'the break stays on');
  assert.equal(a.run('viewWristSwap(sess())'),'');

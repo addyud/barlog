@@ -66,6 +66,8 @@ button{font-family:inherit}
 .daily.toggle .dailyT,.daily.toggle .dailyS{display:block}
 .ex.wristOff .exN,.ex.wristOff .exT,.ex.wristOff .chips,.ex.wristOff .exNote{opacity:.45}
 .exLoad.wrist{color:var(--rust)}
+.exLoad .rowBtns{margin-top:6px}
+.ex.wristAlt{border-left:2px solid var(--steel-hi);padding-left:12px}
 .ex.maxTest{border-left:2px solid var(--sodium);padding-left:12px}
 .box{width:17px;height:17px;flex-shrink:0;border-radius:2px;border:1px solid var(--galv);display:flex;align-items:center;justify-content:center;font-size:11px;color:var(--night)}
 .daily.on .box{background:var(--sodium);border-color:var(--sodium)}
@@ -172,6 +174,16 @@ const DEFAULT_PLAN = [
         "id": "a9balance",
         "n": "OAHS shift practice",
         "wrist": "Skip today.",
+        "wristPara": true,
+        "wristAlt": {
+          "n": "Ring support shifts",
+          "sets": 1,
+          "reps": 3,
+          "unit": "min",
+          "rest": 0,
+          "budget": true,
+          "note": "Neutral wrist. In a ring support hold, shift your weight slowly onto one arm for a few seconds, back to centre, then the other side. Come down and rest between efforts. Arms locked, rings close to your sides."
+        },
         "tier": "skill",
         "sets": 1,
         "reps": 3,
@@ -323,6 +335,16 @@ const DEFAULT_PLAN = [
         "id": "c9balance",
         "n": "OAHS shift practice",
         "wrist": "Skip today.",
+        "wristPara": true,
+        "wristAlt": {
+          "n": "Ring support shifts",
+          "sets": 1,
+          "reps": 3,
+          "unit": "min",
+          "rest": 0,
+          "budget": true,
+          "note": "Neutral wrist. In a ring support hold, shift your weight slowly onto one arm for a few seconds, back to centre, then the other side. Come down and rest between efforts. Arms locked, rings close to your sides."
+        },
         "tier": "skill",
         "sets": 1,
         "reps": 3,
@@ -372,7 +394,7 @@ const DEFAULT_PLAN = [
       {
         "id": "c10lean",
         "n": "Planche lean (light)",
-        "wrist": "On parallettes if you have them, or skip today.",
+        "wristNote": "Parallettes or fists if the wrist complains.",
         "tier": "accessory",
         "sets": 3,
         "reps": 10,
@@ -403,6 +425,16 @@ const DEFAULT_PLAN = [
         "id": "d8shifts",
         "n": "OAHS straddle shifts",
         "wrist": "Skip today.",
+        "wristPara": true,
+        "wristAlt": {
+          "n": "Ring support shifts",
+          "sets": 1,
+          "reps": 3,
+          "unit": "min",
+          "rest": 0,
+          "budget": true,
+          "note": "Neutral wrist. In a ring support hold, shift your weight slowly onto one arm for a few seconds, back to centre, then the other side. Come down and rest between efforts. Arms locked, rings close to your sides."
+        },
         "tier": "skill",
         "sets": 1,
         "reps": 3,
@@ -417,6 +449,15 @@ const DEFAULT_PLAN = [
         "n": "Fingertip hold",
         "max": "fingertip",
         "wrist": "Skip today.",
+        "wristAlt": {
+          "n": "One-arm ring support lean",
+          "sets": 3,
+          "reps": 5,
+          "unit": "s",
+          "rest": 60,
+          "cap": true,
+          "note": "Neutral wrist. In a ring support hold, lean most of your weight onto one arm, the other ring only steadying you. Each side; log the weaker side. Stop when you sag or wobble."
+        },
         "tier": "skill",
         "sets": 3,
         "reps": 5,
@@ -430,7 +471,7 @@ const DEFAULT_PLAN = [
         "id": "d12tuck",
         "n": "Tuck planche",
         "max": "planche",
-        "wrist": "On parallettes if you have them, or skip today.",
+        "wristNote": "Parallettes or fists if the wrist complains.",
         "tier": "main",
         "sets": 4,
         "reps": 5,
@@ -443,7 +484,7 @@ const DEFAULT_PLAN = [
       {
         "id": "d9lean",
         "n": "Feet-on-ground planche lean",
-        "wrist": "On parallettes if you have them, or skip today.",
+        "wristNote": "Parallettes or fists if the wrist complains.",
         "tier": "skill",
         "sets": 3,
         "reps": 5,
@@ -656,7 +697,7 @@ function weekText(date){ const w=calendarWeek(date); return w==null?"Before star
 function hasDraft(){ return Object.values(S.today.log||{}).some(a=>a.some(v=>v!=null)); }
 function refreshDraftDate(){
   if(!hasDraft()&&S.today.date!==dayKey()){
-    S.today.date=dayKey();S.today.rice=false;delete S.today.feel;delete S.today.feelEx;delete S.today.wristBreak;delete S.today.maxTest;
+    S.today.date=dayKey();S.today.rice=false;delete S.today.feel;delete S.today.feelEx;delete S.today.wristBreak;delete S.today.wristPick;delete S.today.maxTest;
     if(S.lightDate&&S.lightDate!==dayKey())endLightSession();
   }
 }
@@ -674,12 +715,39 @@ function setTargetMode(value){
 function endLightSession(){ S.targetMode="normal"; delete S.lightDate; }
 // A wrist break applies to the current workout only. Palms-down exercises (e.wrist) are
 // dimmed with their cue; they stay loggable for bar versions, but those sessions never
-// count toward their ladders and do not clear a pending change on them.
+// count toward their ladders and do not clear a pending change on them. Planche work
+// carries a soft hint instead (e.wristNote): it stays in, trains and counts as usual.
 const wristCue=e=>typeof e.wrist==="string"&&e.wrist?e.wrist:"Skip today.";
+// A dropped exercise may offer a same-day choice (today.wristPick[id]): "para" keeps it on
+// parallettes (e.wristPara, logged with a Parallettes variant, still not counting toward its
+// ladder) or "alt" trains its neutral-wrist alternative (e.wristAlt) in its place, logged
+// under its own id so the original's ladder and history stay clean.
+const WRIST_ALT_SUFFIX="@wrist";
+const wristAltId=e=>e.id+WRIST_ALT_SUFFIX;
+const wristAltOf=e=>e.wristAlt&&typeof e.wristAlt==="object"&&typeof e.wristAlt.n==="string"&&e.wristAlt.n?e.wristAlt:null;
+const wristPickOf=e=>S.today.wristBreak&&e.wrist&&S.today.wristPick?S.today.wristPick[e.id]:undefined;
+function wristView(e){
+  if(wristPickOf(e)!=="alt")return e;
+  const alt=wristAltOf(e); if(!alt)return e;
+  return {...alt,id:wristAltId(e),tier:e.tier,wristOf:e.id,wristOfName:e.n};
+}
+const altLogged=()=>Object.entries(S.today.log||{}).some(([id,a])=>id.endsWith(WRIST_ALT_SUFFIX)&&a.some(v=>v!=null));
+function setWristPick(exId,value){
+  const s=sess(), e=s.ex.find(x=>x.id===exId); if(!e||!S.today.wristBreak||!e.wrist)return;
+  if(value==="para"&&!e.wristPara)return;
+  if(value==="alt"&&!wristAltOf(e))return;
+  const current=wristView(e); if((S.today.log[current.id]||[]).some(v=>v!=null)){toast('Clear the logged sets on this exercise first.');return;}
+  const previous=S.today.wristPick?{...S.today.wristPick}:undefined;
+  const pick={...(S.today.wristPick||{})}; if(value)pick[exId]=value; else delete pick[exId];
+  if(Object.keys(pick).length)S.today.wristPick=pick; else delete S.today.wristPick;
+  if(!save()){ if(previous)S.today.wristPick=previous; else delete S.today.wristPick; render(); return; }
+  render();
+}
 function setWristBreak(on){
-  const previous=S.today.wristBreak;
-  if(on)S.today.wristBreak=true; else delete S.today.wristBreak;
-  if(!save()){ if(previous)S.today.wristBreak=true; else delete S.today.wristBreak; render(); return; }
+  if(!on&&altLogged()){toast('Finish or clear this workout before ending the wrist break. Alternative sets are logged.');return;}
+  const previous=S.today.wristBreak, prevPick=S.today.wristPick;
+  if(on)S.today.wristBreak=true; else {delete S.today.wristBreak; delete S.today.wristPick;}
+  if(!save()){ if(previous)S.today.wristBreak=true; else delete S.today.wristBreak; if(prevPick)S.today.wristPick=prevPick; render(); return; }
   render();
 }
 /* ── max tests ──
@@ -715,9 +783,10 @@ function maxTestToday(s){
   return key?maxCandidates(s).find(c=>c.e.max===key)||null:null;
 }
 function todayExercises(s){
-  const m=maxTestToday(s); if(!m)return s.ex;
-  const i=s.ex.findIndex(e=>e.tier!=="prep"), at=i<0?s.ex.length:i;
-  return s.ex.slice(0,at).concat([{...m.b,maxTest:true}],s.ex.slice(at));
+  const ex=s.ex.map(wristView);
+  const m=maxTestToday(s); if(!m)return ex;
+  const i=ex.findIndex(e=>e.tier!=="prep"), at=i<0?ex.length:i;
+  return ex.slice(0,at).concat([{...m.b,maxTest:true}],ex.slice(at));
 }
 function setMaxTest(v){
   const s=sess(), previous=S.today.maxTest;
@@ -747,7 +816,8 @@ function maxControl(s){
 }
 // When a wrist break would drop more than half of a workout, offer the workout trained
 // longest ago that keeps at least half of its own; next up brings the dropped one back.
-const dropShare=s=>{ const w=s.ex.filter(e=>e.tier!=="prep"); return w.length?w.filter(e=>e.wrist).length/w.length:0; };
+const wristDropped=e=>!!e.wrist&&!e.wristPara&&!wristAltOf(e);
+const dropShare=s=>{ const w=s.ex.filter(e=>e.tier!=="prep"); return w.length?w.filter(wristDropped).length/w.length:0; };
 function wristAlternative(s){
   if(!S.today.wristBreak||s.testOnly||hasDraft()||dropShare(s)<=0.5)return null;
   const last={}; for(const r of S.history){ const d=String(r.date); if(!last[r.sid]||d>last[r.sid])last[r.sid]=d; }
@@ -757,14 +827,14 @@ function wristAlternative(s){
 function switchForWrist(id){
   const alt=wristAlternative(sess()); if(!alt||alt.id!==id)return;
   const previous=JSON.parse(JSON.stringify(S.today));
-  S.today.sid=id;S.today.selectionConfirmed=true;delete S.today.maxTest;
+  S.today.sid=id;S.today.selectionConfirmed=true;delete S.today.maxTest;delete S.today.wristPick;
   if(!save()){S.today=previous;render();return;}
   pendingSession=null;stopTimer();render();
   document.getElementById('workoutTitle')?.focus?.();
 }
 function viewWristSwap(s){
   const alt=wristAlternative(s); if(!alt)return "";
-  const w=s.ex.filter(e=>e.tier!=="prep"), dropped=w.filter(e=>e.wrist).length;
+  const w=s.ex.filter(e=>e.tier!=="prep"), dropped=w.filter(wristDropped).length;
   return '<div class="step back"><b>Wrist break drops '+dropped+' of '+w.length+' exercises here.</b> Train '+esc(alt.id)+' \u00b7 '+esc(alt.name)+' instead? '+esc(s.id)+' comes back next time.'+
     '<div class="rowBtns"><button class="miniB go" onclick="switchForWrist(\''+alt.id+'\')">Train '+esc(alt.id)+' today</button></div></div>';
 }
@@ -772,7 +842,7 @@ function wristControl(){
   const on=!!S.today.wristBreak;
   return '<button class="daily toggle'+(on?" on":"")+'" role="switch" aria-checked="'+on+'" onclick="setWristBreak('+(!on)+')">'+
     '<span class="box">'+(on?"\u2713":"")+'</span><span><span class="dailyT">Wrist break today</span>'+
-    '<span class="dailyS">Palms-down work is greyed out with a bar swap or a skip. Hanging and bar work as usual. Turns off when you finish.</span></span></button>';
+    '<span class="dailyS">Palms-down work is greyed out with a bar swap or a skip; one-arm prep offers parallettes or a ring alternative, your call on the day. Planche work stays in, on parallettes or fists if needed. Hanging and bar work as usual. Turns off when you finish.</span></span></button>';
 }
 function lightControl(){
   const on=S.targetMode==="reduced";
@@ -901,11 +971,29 @@ function addGripAlternation(plan){
   if(e&&e.n==="Pull ups"&&e.unit==="reps"&&!e.alt)e.alt=["Overhand","Underhand"];
 }
 // Palms-down work gets a wrist-break cue, added once where the exercise is still the default.
-const WRIST_CUES={"a9balance": "Skip today.", "c9balance": "Skip today.", "d8shifts": "Skip today.", "d11finger": "Skip today.", "b3": "Do these on the bars, with a neutral wrist.", "b11push": "On parallettes or fists, or skip today.", "c10lean": "On parallettes if you have them, or skip today.", "d12tuck": "On parallettes if you have them, or skip today.", "d9lean": "On parallettes if you have them, or skip today."};
+const WRIST_CUES={"a9balance": "Skip today.", "c9balance": "Skip today.", "d8shifts": "Skip today.", "d11finger": "Skip today.", "b3": "Do these on the bars, with a neutral wrist.", "b11push": "On parallettes or fists, or skip today."};
 function addWristCues(plan){
   for(const p of plan)for(const e of p.ex){
     const def=DEFAULT_PLAN.find(x=>x.id===p.id)?.ex.find(x=>x.id===e.id);
     if(def&&WRIST_CUES[e.id]&&e.n===def.n&&e.wrist===undefined)e.wrist=WRIST_CUES[e.id];
+  }
+}
+// Planche work used to be dropped by a wrist break. Where the saved cue is still that
+// default (by id, so a staged rename counts), swap it for the soft hint.
+const PLANCHE_WRIST_CUE="On parallettes if you have them, or skip today.", PLANCHE_WRIST_NOTE="Parallettes or fists if the wrist complains.";
+function keepPlancheOnWristBreak(plan){
+  for(const p of plan)for(const e of p.ex){
+    if(["c10lean","d12tuck","d9lean"].includes(e.id)&&e.wrist===PLANCHE_WRIST_CUE){delete e.wrist;if(e.wristNote===undefined)e.wristNote=PLANCHE_WRIST_NOTE;}
+  }
+}
+// Dropped one-arm prep gets a same-day choice on a wrist break, added once where still the default.
+const WRIST_ALTS={};
+for(const p of DEFAULT_PLAN)for(const e of p.ex)if(e.wristAlt||e.wristPara)WRIST_ALTS[e.id]={n:e.n,...(e.wristPara?{wristPara:true}:{}),...(e.wristAlt?{wristAlt:e.wristAlt}:{})};
+function addWristAlternatives(plan){
+  for(const p of plan)for(const e of p.ex){
+    const d=WRIST_ALTS[e.id]; if(!d||e.n!==d.n||e.wristAlt!==undefined||e.wristPara!==undefined)continue;
+    if(d.wristPara)e.wristPara=true;
+    if(d.wristAlt)e.wristAlt=JSON.parse(JSON.stringify(d.wristAlt));
   }
 }
 // Regular exercises that have a benchmark get its key, added once where still the default.
@@ -929,6 +1017,8 @@ const PLAN_PATCHES=[
   {key:"dipsCopyVersion",v4Only:true,apply:updateDipsCopy},
   {key:"gripAlternationVersion",v4Only:true,apply:addGripAlternation},
   {key:"wristCuesVersion",v4Only:true,apply:addWristCues},
+  {key:"plancheWristVersion",v4Only:true,apply:keepPlancheOnWristBreak},
+  {key:"wristAltVersion",v4Only:true,apply:addWristAlternatives},
   {key:"maxKeysVersion",v4Only:true,apply:addMaxKeys},
 ];
 function patchFlags(value){ return Object.fromEntries(PLAN_PATCHES.map(p=>[p.key,value(p.key)])); }
@@ -1307,7 +1397,7 @@ function viewFeel(s){
     Object.keys(FEELS).map(k=>'<button class="btn '+(feel===k?'':'ghost')+'" aria-pressed="'+(feel===k)+'" onclick="setFeel(\''+k+'\')">'+FEELS[k]+'</button>').join('')+'</div>';
   if(feel==="grindy"||feel==="ache"){
     const picked=S.today.feelEx||[];
-    const done=s.ex.filter(e=>e.tier!=="prep"&&(S.today.log[e.id]||[]).some(v=>v!=null));
+    const done=todayExercises(s).filter(e=>e.tier!=="prep"&&(S.today.log[e.id]||[]).some(v=>v!=null));
     h+='<div class="note">Which exercise? Leave all off if it was the whole session.</div><div class="chips">'+
       done.map(e=>'<button class="chip'+(picked.includes(e.id)?' on':'')+'" aria-pressed="'+picked.includes(e.id)+'" onclick="toggleFeelEx(\''+e.id+'\')">'+esc(e.n)+'</button>').join('')+'</div>';
   }
@@ -1534,13 +1624,13 @@ function recordBenchmark(exId,idx,raw){
 function logSet(exId,idx,target){
   refreshDraftDate();
   unlockAudio();
-  const e=sess().ex.find(x=>x.id===exId);
+  const e=todayExercises(sess()).find(x=>x.id===exId); if(!e)return;
   const arr=(S.today.log[exId]||[]).slice();
   if(arr[idx]==null){ arr[idx]=target; S.today.log[exId]=arr; save(); render(); startRest(e.rest,e.n+" · set "+(idx+1)); }
   else{ arr[idx]=null; S.today.log[exId]=arr; commit(); }
 }
 function nudge(exId,d){
-  const e=sess().ex.find(x=>x.id===exId);
+  if(!todayExercises(sess()).some(x=>x.id===exId))return;
   const arr=(S.today.log[exId]||[]).slice();
   let last=-1; arr.forEach((v,i)=>{ if(v!=null)last=i; });
   if(last<0)return;
@@ -1561,13 +1651,13 @@ function confirmSessionChange(){
   const chosen=S.plan.find(p=>p.id===pendingSession);
   if(!chosen||hasDraft()){cancelSessionChange();return;}
   const previous=JSON.parse(JSON.stringify(S.today));
-  S.today.sid=chosen.id;S.today.selectionConfirmed=true;delete S.today.maxTest;
+  S.today.sid=chosen.id;S.today.selectionConfirmed=true;delete S.today.maxTest;delete S.today.wristPick;
   if(!save()){S.today=previous;render();return;}
   pendingSession=null;stopTimer();render();
   document.getElementById('workoutTitle')?.focus?.();
 }
 function toggleRice(){ S.today.rice=!S.today.rice; commit(); }
-function clearDay(){ stopTimer(); S.today.log={}; S.today.band={}; delete S.today.feel; delete S.today.feelEx; delete S.today.wristBreak; delete S.today.maxTest; commit(); }
+function clearDay(){ stopTimer(); S.today.log={}; S.today.band={}; delete S.today.feel; delete S.today.feelEx; delete S.today.wristBreak; delete S.today.wristPick; delete S.today.maxTest; commit(); }
 function setTodayBand(id,v){ if(!S.today.band)S.today.band={}; S.today.band[id]=v; save(); }
 function cycleAlert(){ const o=["vibrate","sound","off"]; S.alert=o[(o.indexOf(S.alert)+1)%3]; commit(); }
 
@@ -1585,7 +1675,7 @@ function finish(){
     const sum=vals.reduce((a,b)=>a+b,0);
     if(e.unit==="reps")reps+=sum; else if(e.unit==="s")secs+=sum;
     const item={id:e.id,n:e.n,unit:e.unit,sets:vals};
-    const variant=nextVariant(s.id,e); if(variant)item.variant=variant;
+    const variant=nextVariant(s.id,e); if(variant)item.variant=variant; else if(wristPickOf(e)==="para")item.variant="Parallettes";
     if(!e.amrap)item.target=fullTargets(e);
     const band=S.today.band&&S.today.band[e.id]&&S.today.band[e.id].trim();
     if(band)item.band=band;
@@ -1620,7 +1710,7 @@ function editField(sid,exId,field,val){
   if(["sets","reps","rest"].indexOf(field)>=0){ const n=parseInt(val,10); e[field]=isNaN(n)?0:Math.max(0,n); }
   else e[field]=val;
   if(field==="sets"||field==="reps")delete e.perSet; // a manual dose replaces step-up targets
-  if((field==="wrist"||field==="trackBand")&&!val)delete e[field];
+  if((field==="wrist"||field==="wristNote"||field==="wristAlt"||field==="wristPara"||field==="trackBand")&&!val)delete e[field];
   save();
 }
 function resetPlan(){ switchPlan(); }
@@ -1906,12 +1996,20 @@ function viewTrain(ph){
     const w=calendarWeek(S.today.date||dayKey()), light=maxed&&e===maxed.e;
     const tg=setTargets(e,w,light?"reduced":S.targetMode), cnt=tg.length, tgt=repsFor(e,w), log=S.today.log[e.id]||[];
     const done=log.filter(v=>v!=null).length;
-    const wristOff=!!(S.today.wristBreak&&e.wrist);
-    h+='<div class="ex'+(wristOff?' wristOff':'')+(e.maxTest?' maxTest':'')+'"><div class="exTop"><div class="exN">'+esc(e.n)+(e.maxTest?' · test':e.optional?' · optional':'')+'</div><div class="exT">'+
+    const pick=wristPickOf(e), wristOff=!!(S.today.wristBreak&&e.wrist)&&pick!=="para";
+    h+='<div class="ex'+(wristOff?' wristOff':'')+(e.maxTest?' maxTest':'')+(e.wristOf?' wristAlt':'')+'"><div class="exTop"><div class="exN">'+esc(e.n)+(e.maxTest?' · test':e.optional?' · optional':'')+'</div><div class="exT">'+
        (e.amrap?"record actual":e.budget?tgt+"min total incl. rest":fmtTargets(tg,e))+(e.rest?" · "+mmss(e.rest)+" rest":"")+'</div></div>';
     if(e.maxTest)h+='<div class="exLoad">Fresh, straight after the warm-up. One clean attempt, then the session as planned.</div>';
     if(light)h+='<div class="exLoad">Light today after the max: '+esc(fmtTargets(tg,e))+'. Doesn\u2019t count toward the ladder.</div>';
-    if(wristOff)h+='<div class="exLoad wrist">Wrist break: '+esc(wristCue(e))+'</div>';
+    const undo='<button class="miniB" onclick="setWristPick(\''+(e.wristOf||e.id)+'\',null)">Undo</button>';
+    if(e.wristOf)h+='<div class="exLoad">Wrist break: instead of '+esc(e.wristOfName)+' today.<div class="rowBtns">'+undo+'</div></div>';
+    else if(pick==="para")h+='<div class="exLoad">Wrist break: on parallettes today. Doesn\u2019t count toward the ladder.<div class="rowBtns">'+undo+'</div></div>';
+    else if(wristOff){
+      const alt=wristAltOf(e), choices=(e.wristPara?'<button class="miniB go" onclick="setWristPick(\''+e.id+'\',\'para\')">On parallettes</button>':'')+
+        (alt?'<button class="miniB go" onclick="setWristPick(\''+e.id+'\',\'alt\')">Swap: '+esc(alt.n)+'</button>':'');
+      h+='<div class="exLoad wrist">Wrist break: '+esc(choices?(e.wristPara?"Parallettes if the wrist allows, or swap.":"Swap, or skip today."):wristCue(e))+(choices?'<div class="rowBtns">'+choices+'</div>':'')+'</div>';
+    }
+    else if(S.today.wristBreak&&typeof e.wristNote==="string"&&e.wristNote)h+='<div class="exLoad">Wrist break: '+esc(e.wristNote)+'</div>';
     const variant=nextVariant(s.id,e);
     if(variant)h+='<div class="exLoad">This session: '+esc(variant)+'</div>';
     h+=viewLast(s.id,e);
