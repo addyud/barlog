@@ -1,7 +1,7 @@
 // Offline support. The app is network-first so updates (and their one-time plan
 // repairs) arrive whenever there is signal; the cached copy is the fallback.
 // Training data lives in localStorage and is never touched here.
-const CACHE = "barlog-shell-v1";
+const CACHE = "barlog-shell-v2";
 const SHELL = ["./", "./index.html", "./manifest.webmanifest", "./icon-192.png", "./icon-512.png"];
 const NETWORK_WAIT_MS = 3000; // weak gym signal: fall back to the cache instead of hanging
 

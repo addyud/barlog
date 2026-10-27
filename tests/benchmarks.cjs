@@ -31,7 +31,7 @@ test('failed save preserves prior benchmark log',()=>{
 });
 test('copy migration preserves calendar, custom notes, plans and historical results',()=>{
  const a=boot(),saved=a.json('S');delete saved.benchmarkEntryVersion;
- saved.calendar={startDate:'2026-08-18',source:'earliest-log'};
+ saved.calendar={startDate:'2026-08-17',source:'earliest-log'};
  saved.plan.find(p=>p.id==='T').ex.find(e=>e.id==='t3').note='Personal instructions';
  saved.history=[{sid:'T',date:'2026-09-01',detail:[{id:'t3',sets:[7],unit:'reps'}]}];saved.prs.hspu=[{date:'2026-09-01',value:7}];
  const b=boot(saved);

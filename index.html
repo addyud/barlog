@@ -679,6 +679,8 @@ function dateNumber(value){
   return Number.isFinite(n)&&new Date(n).toISOString().slice(0,10)===value?n/86400000:null;
 }
 function datePlus(date,days){ return new Date((dateNumber(date)+days)*86400000).toISOString().slice(0,10); }
+// Weeks run Monday to Sunday: the start date is snapped back to the Monday on or before it.
+function mondayOf(date){ const n=dateNumber(date); return n==null?null:datePlus(date,-((n+3)%7)); }
 function calendarWeek(date,start=S.calendar.startDate){
   const n=dateNumber(date), a=dateNumber(start);
   return n==null||a==null||n<a?null:Math.floor((n-a)/7)+1;
@@ -690,6 +692,7 @@ function initCalendar(state,saved){
     const dates=(state.history||[]).map(r=>r.date).filter(d=>dateNumber(d)!=null&&d<=dayKey()).sort();
     state.calendar={startDate:dates[0]||dayKey(),source:dates.length?"earliest-log":"new"};
   }
+  state.calendar.startDate=mondayOf(state.calendar.startDate);
   state.targetMode=["normal","reduced"].includes(saved.targetMode)?saved.targetMode:
     (saved.week===4&&saved.reducedWeek4!==false?"reduced":"normal");
 }
@@ -697,7 +700,7 @@ function weekText(date){ const w=calendarWeek(date); return w==null?"Before star
 function hasDraft(){ return Object.values(S.today.log||{}).some(a=>a.some(v=>v!=null)); }
 function refreshDraftDate(){
   if(!hasDraft()&&S.today.date!==dayKey()){
-    S.today.date=dayKey();S.today.rice=false;delete S.today.feel;delete S.today.feelEx;delete S.today.wristBreak;delete S.today.wristPick;delete S.today.maxTest;
+    S.today.date=dayKey();S.today.rice=false;delete S.today.feel;delete S.today.feelEx;delete S.today.wristBreak;delete S.today.wristPick;delete S.today.maxTest;delete S.today.note;
     if(S.lightDate&&S.lightDate!==dayKey())endLightSession();
   }
 }
@@ -852,7 +855,7 @@ function lightControl(){
 }
 function viewCalendar(){
   const w=calendarWeek(dayKey()), start=w==null?S.calendar.startDate:datePlus(S.calendar.startDate,(w-1)*7);
-  return '<div class="lbl">Calendar · '+esc(weekText(dayKey()))+'</div><div class="note">'+esc(start)+' to '+esc(datePlus(start,6))+'. Weeks advance automatically every seven days.</div>';
+  return '<div class="lbl">Calendar · '+esc(weekText(dayKey()))+'</div><div class="note">'+esc(start)+' to '+esc(datePlus(start,6))+'. Weeks run Monday to Sunday.</div>';
 }
 
 /* ── state ── */
@@ -886,7 +889,7 @@ function expandHist(i){ openHist=openHist===i?-1:i; render(); }
 function blank(){return{
   planVersion:PLAN_VERSION, ...patchFlags(()=>1), reducedWeek4:true,
   week:1, rot:0, alert:"vibrate",
-  calendar:{startDate:dayKey(),source:"new"}, targetMode:"normal",
+  calendar:{startDate:mondayOf(dayKey()),source:"new"}, targetMode:"normal",
   plan:JSON.parse(JSON.stringify(DEFAULT_PLAN)),
   today:{date:"",sid:"A",log:{},band:{},rice:false},
   history:[], prs:{fingertip:[],planche:[],pullup:[],hspu:[],lever:[],dip:[],pushup:[]},
@@ -1657,8 +1660,13 @@ function confirmSessionChange(){
   document.getElementById('workoutTitle')?.focus?.();
 }
 function toggleRice(){ S.today.rice=!S.today.rice; commit(); }
-function clearDay(){ stopTimer(); S.today.log={}; S.today.band={}; delete S.today.feel; delete S.today.feelEx; delete S.today.wristBreak; delete S.today.wristPick; delete S.today.maxTest; commit(); }
+function clearDay(){ stopTimer(); S.today.log={}; S.today.band={}; delete S.today.feel; delete S.today.feelEx; delete S.today.wristBreak; delete S.today.wristPick; delete S.today.maxTest; delete S.today.note; commit(); }
 function setTodayBand(id,v){ if(!S.today.band)S.today.band={}; S.today.band[id]=v; save(); }
+// Free-text note for the day, saved on the finished record as `note`.
+function setTodayNote(v){ v=String(v||""); if(v.trim())S.today.note=v; else delete S.today.note; save(); }
+function viewNote(){
+  return '<div class="lbl">Note</div><div class="field"><textarea id="todayNote" rows="2" placeholder="Anything unusual today? Optional." oninput="setTodayNote(this.value)">'+esc(S.today.note||"")+'</textarea></div>';
+}
 function cycleAlert(){ const o=["vibrate","sound","off"]; S.alert=o[(o.indexOf(S.alert)+1)%3]; commit(); }
 
 function finish(){
@@ -1686,6 +1694,7 @@ function finish(){
   const feel=FEELS[S.today.feel]?{feel:S.today.feel,...(S.today.feelEx&&S.today.feelEx.length?{feelEx:S.today.feelEx.slice()}:{})}:{};
   if(S.today.wristBreak)feel.wristBreak=true;
   if(maxed)feel.maxTest=maxed.e.max;
+  if(S.today.note&&S.today.note.trim())feel.note=S.today.note.trim();
   S.history.unshift({date:S.today.date||dayKey(),finishedAt:new Date().toISOString(),sid:s.id,week:calendarWeek(S.today.date||dayKey()),weekSource:"calendar",targetMode:S.targetMode,reps:reps,secs:secs,detail:detail,...feel,...(S.today.rice?{rice:true}:{})});
   // Keep older entries; backups include the complete history.
   if(!s.testOnly)advanceAfter(s.id);
@@ -2036,6 +2045,7 @@ function viewTrain(ph){
   const any=todayExercises(s).some(e=>(S.today.log[e.id]||[]).some(v=>v!=null));
   if(!s.testOnly)h+=maxControl(s)+wristControl()+lightControl();
   if(any&&!s.testOnly)h+=viewFeel(s);
+  if(any)h+=viewNote();
   h+='<div class="acts"><button id="finishSession" class="btn" '+(any?"":"disabled")+' onclick="finish()">Finish session</button>'+
      '<button class="btn ghost" onclick="clearDay()">Clear</button></div>';
   h+='<div class="note">'+(s.testOnly?'Enter your actual result. Leave untested exercises blank. Finishing keeps your A–D rotation unchanged.':'Tap a chip after each set; it logs the target. Use Fix last to correct it. Finishing advances the rotation.')+'</div>';

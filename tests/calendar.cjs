@@ -10,7 +10,7 @@ function legacy(){
 }
 test('sparse history: continuous week 6, correct current rotation, all original records preserved',()=>{
  const original=legacy(),a=boot(original),s=a.json('S');
- assert.equal(s.calendar.startDate,'2026-08-18');assert.equal(a.run("calendarWeek('2026-09-25')"),6);
+ assert.equal(s.calendar.startDate,'2026-08-17');assert.equal(a.run("calendarWeek('2026-09-25')"),6);
  for(const key of ['history','prs','rot','today','planArchives'])assert.deepEqual(s[key],original[key]);
  assert.equal(a.run('nextId()'),'C');assert.equal(s.targetMode,'normal');
  const again=boot(s);assert.deepEqual(again.json('S'),s);
@@ -35,7 +35,21 @@ test('legacy week-four reduction stays selected; all future calendar weeks keep 
 });
 test('an overnight unfinished workout keeps its original date and calendar week',()=>{
  const s=legacy();s.today={date:'2026-09-21',sid:'C',log:{c3:[5]},band:{},rice:false};const a=boot(s);
- a.run('finish()');assert.equal(a.run('S.history[0].date'),'2026-09-21');assert.equal(a.run('S.history[0].week'),5);assert.equal(a.run('S.history[0].weekSource'),'calendar');assert.equal(a.run('nextId()'),'D');
+ a.run('finish()');assert.equal(a.run('S.history[0].date'),'2026-09-21');assert.equal(a.run('S.history[0].week'),6);assert.equal(a.run('S.history[0].weekSource'),'calendar');assert.equal(a.run('nextId()'),'D');
+});
+test('weeks run Monday to Sunday: the start date snaps back to Monday and stays put',()=>{
+ const a=boot();for(const [d,m] of [['2026-10-26','2026-10-26'],['2026-10-27','2026-10-26'],['2026-11-01','2026-10-26'],['2026-11-02','2026-11-02'],['2026-01-01','2025-12-29']])assert.equal(a.run(`mondayOf('${d}')`),m);
+ assert.equal(a.run("mondayOf('nope')"),null);
+ const s=legacy();s.calendar={startDate:'2026-08-20',source:'earliest-log'};const b=boot(s);assert.equal(b.run('S.calendar.startDate'),'2026-08-17');assert.equal(b.run('S.calendar.source'),'earliest-log');
+ assert.equal(b.run("calendarWeek('2026-08-23')"),1);assert.equal(b.run("calendarWeek('2026-08-24')"),2);assert.ok(b.run('viewCalendar()').includes('2026-09-21 to 2026-09-27'));
+ const again=boot(b.json('S'));assert.equal(again.run('S.calendar.startDate'),'2026-08-17');
+});
+test('a quick note is kept with the draft, saved on the finished record and cleared after',()=>{
+ const s=legacy();s.today={date:'2026-09-25',sid:'C',log:{c3:[5]},band:{},rice:false};const a=boot(s);
+ assert.ok(a.run('viewTrain(phase())').includes('todayNote'));a.run("setTodayNote('  Trained at a new gym, low bar  ')");assert.equal(a.run('S.today.note'),'  Trained at a new gym, low bar  ');
+ assert.ok(a.run('viewTrain(phase())').includes('Trained at a new gym, low bar'));a.run('finish()');assert.equal(a.run('S.history[0].note'),'Trained at a new gym, low bar');assert.equal(a.run('S.today.note'),undefined);
+ a.run('openHist=0');assert.ok(a.run('viewHistory()').includes('Trained at a new gym, low bar'));assert.ok(a.run('coachSummary()').includes('Note: Trained at a new gym, low bar'));
+ a.run("setTodayNote('   ')");assert.equal(a.run('S.today.note'),undefined);a.run("setTodayNote('x')");a.run('clearDay()');assert.equal(a.run('S.today.note'),undefined);
 });
 test('an idle app advances the calendar after midnight, without losing a draft or changing targets',()=>{
  const a=boot(legacy(),'2026-09-28T12:00:00');a.run("S.today.date=dayKey();S.today.log={c3:[5]}");const draft=a.json('S.today');

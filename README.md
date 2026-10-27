@@ -8,8 +8,8 @@ Train, Progress and Data. There is no Edit tab: targets move through step ups an
 
 ## Calendar and recovery
 
-- Calendar weeks are seven-day windows from one saved `calendar.startDate`. They advance with local calendar dates and continue beyond week 8. UTC date-only arithmetic avoids daylight-saving shifts.
-- Existing installations start from the earliest valid, non-future saved workout date. This is an inference stored once, without a calendar-start adjustment control. New installations start today. Once set, the date stays fixed even when older workouts are added or deleted.
+- Calendar weeks are Monday-to-Sunday windows counted from one saved `calendar.startDate`, which is snapped back to the Monday on or before it at every load (`mondayOf`). They advance with local calendar dates and continue beyond week 8. UTC date-only arithmetic avoids daylight-saving shifts.
+- Existing installations start from the Monday of the week holding the earliest valid, non-future saved workout date. This is an inference stored once, without a calendar-start adjustment control. New installations start today. Once set, the date stays fixed even when older workouts are added or deleted.
 - Routine updates, adoption and archive restoration never reset the calendar. Restoring an entire backup restores its calendar too.
 - History labels are calculated from workout dates. Legacy `history[].week` values remain untouched and appear as original labels in expanded details. New entries have `weekSource: "calendar"`; their stored `week` is an export snapshot. UI labels always derive from dates.
 - The root `week` is retained for compatibility, not scheduling. Exports refresh it from the calendar.
@@ -46,6 +46,7 @@ Each exercise's written progression is encoded as a ladder in `LADDERS`, keyed b
 
 - The screen stays awake (Screen Wake Lock) while the current workout has logged sets, so the rest timer and its alert stay live. The browser drops the lock when the app is hidden; it is requested again on return. Browsers without the API are unaffected.
 - Progress lists Grindy and Ache flags per exercise for the last six weeks. Ache in two sessions within seven days suggests making today a light session; it never switches automatically, and Not now holds until a newer ache.
+- Note: once a set is logged, Train shows a free-text box for anything unusual that day. It is kept with the draft (`today.note`), saved on the finished record as `note`, shown in expanded history and included in the AI summary.
 - Review with AI builds a plain-text summary on the device: current plan, the last six weeks of sessions with check-ins and missed targets, step ups and latest maxes. Share or copy it into an AI assistant; nothing is sent anywhere by the app.
 
 ## Max tests
