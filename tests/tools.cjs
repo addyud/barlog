@@ -127,7 +127,7 @@ test('wrist break dims palms-down work, keeps it loggable, and leaves ladders un
  a.run(`[0,1,2,3,4].forEach(i=>logSet('b3',i,1));[0,1].forEach(i=>logSet('b12er',i,15));setFeel('clean');finish()`);
  assert.equal(a.run('S.history[0].wristBreak'),true);assert.equal(a.run('S.today.wristBreak'),undefined,'off after finishing');
  const p=a.json(`sessionProgress(S.plan.find(x=>x.id==='B'))`);
- assert.equal(p.b3.streak,0,'HSPU on bars does not count');assert.equal(p.b12er.kind,'up','band rotations count as usual');
+ assert.equal(p.b3.streak,0,'HSPU on bars does not count');assert.equal(p.b12er.streak,1,'band rotations count as usual');
  assert.match(a.run(`S.today.sid='B';S.today.maxTest=false;viewTrain(phase())`),/Last 25\/09<\/span> 1, 1, 1, 1, 1 <span>· wrist break<\/span>/);
  a.run(`stepAction('b12er','accept')`);a.run(`S.today.sid='A';S.today.maxTest=false;logSet('a8',0,6);finish()`);
  // A pending change on a palms-down exercise survives a wrist-break session of that workout.
@@ -177,7 +177,7 @@ test('a due max is scheduled after the warm-up, runs that exercise light, and ca
  a.run(`[0,1,2].forEach(i=>logSet('b3',i,1));[0,1].forEach(i=>logSet('b12er',i,15));setFeel('clean');finish()`);
  assert.deepEqual(a.json('S.prs.hspu'),[{date:'2026-09-25',value:4}]);assert.equal(a.run('S.history[0].maxTest'),'hspu');
  assert.equal(a.run(`S.history[0].detail.find(x=>x.id==='t3').sets[0]`),4);
- const p=a.json(`sessionProgress(S.plan.find(x=>x.id==='B'))`);assert.equal(p.b3.streak,0,'the max day does not count');assert.equal(p.b12er.kind,'up');
+ const p=a.json(`sessionProgress(S.plan.find(x=>x.id==='B'))`);assert.equal(p.b3.streak,0,'the max day does not count');assert.equal(p.b12er.streak,1);
  html=a.run(`S.today.sid='B';viewTrain(phase())`);
  assert.match(html,/Last 25\/09<\/span> 1, 1, 1 <span>· max day<\/span>/);assert.match(html,/Nothing due\. HSPU: last max this week\./);
  assert.match(a.run(`S.today.sid='A';viewTrain(phase())`),/Not today: a max was tested in the last week\./);

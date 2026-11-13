@@ -1130,7 +1130,7 @@ function syncNext(){ if(!hasDraft()&&!S.today.selectionConfirmed)S.today.sid=nex
    targets change when you accept. A session counts toward a step up only when it was
    marked Clean for that exercise, on normal targets, at the current target, with every
    set met. One step up per workout until that workout has been trained again. */
-const ER_LADDER={unit:"reps",mode:"one",step:1,top:20,clean:1,reset:15,next:"2 \u00d7 20 reached. Switch to a heavier band and rebuild from 15."};
+const ER_LADDER={unit:"reps",mode:"one",step:1,top:20,clean:2,reset:15,next:"2 \u00d7 20 reached. Switch to a heavier band and rebuild from 15."};
 const LEVER_LADDER={unit:"s",mode:"half",step:1,top:8,clean:2,next:"Holds reached 8s. Move to the next stage: a slightly longer lever at shorter holds.",
   stages:[{n:"Tuck front lever"},
     {n:"Advanced tuck front lever",reps:5,note:"Knees drawn away from the chest, back flat, hips level with the bar. Stop when hips drop or the back rounds. Fix the chip to your actual seconds."},

@@ -63,8 +63,8 @@ test('accepting a step up changes only that exercise, logs it and moves chips to
  a.run(`editField('B','b3','reps','1')`);assert.equal(ex(a,'B','b3').perSet,undefined,'manual dose replaces per-set targets');
 });
 test('one step up per workout until that workout is trained again',()=>{
- const a=boot();train(a,'B',['b11push','b12er'],'clean');
- let p=steps(a,'B');assert.equal(p.b11push.kind,'up');assert.equal(p.b12er.kind,'queued');
+ const a=boot();train(a,'B',['b11push','b12er'],'clean');train(a,'B',['b11push','b12er'],'clean','','2026-09-25');
+ let p=steps(a,'B');assert.equal(p.b11push.kind,'up');assert.equal(p.b12er.kind,'queued','band rotations need two clean sessions, and have them');
  a.run(`S.today.sid='B';S.today.maxTest=false;stepAction('b12er','accept')`);assert.equal(ex(a,'B','b12er').reps,15,'queued item cannot be accepted');
  a.run(`stepAction('b11push','accept')`);p=steps(a,'B');
  assert.equal(p.b12er.kind,'queued');assert.equal(p.b12er.behind,'Push ups');assert.equal(a.run('S.progress.pending.B.id'),'b11push');
@@ -74,7 +74,7 @@ test('one step up per workout until that workout is trained again',()=>{
  assert.equal(p.b12er.kind,'up','the exercise waiting longest gets the next slot');assert.equal(p.b11push.kind,'queued');assert.equal(p.b11push.behind,'Band external rotations');
 });
 test('Not yet hides a suggestion until the next session of that workout',()=>{
- const a=boot();train(a,'B',['b11push','b12er'],'clean');a.run(`S.today.sid='B';S.today.maxTest=false;stepAction('b11push','later')`);
+ const a=boot();train(a,'B',['b11push','b12er'],'clean');train(a,'B',['b11push','b12er'],'clean');a.run(`S.today.sid='B';S.today.maxTest=false;stepAction('b11push','later')`);
  let p=steps(a,'B');assert.ok(p.b11push.snoozed);assert.equal(p.b12er.kind,'up','a declined step does not block the next one');
  assert.ok(!a.run('viewTrain(phase())').includes(`stepAction('b11push','accept')`));
  train(a,'B',['b11push'],'clean');p=steps(a,'B');assert.ok(!p.b11push.snoozed);assert.equal(p.b11push.kind,'up');
@@ -92,7 +92,7 @@ test('ache on a named exercise offers a step back; unnamed ache offers nothing',
  assert.equal(ex(a,'D','d12tuck').reps,6);
 });
 test('milestones at the top can be acknowledged or reset to the planned restart',()=>{
- const a=boot();a.run(`S.plan[1].ex.find(e=>e.id==='b12er').reps=20;S.plan[3].ex.find(e=>e.id==='d14er').reps=20`);train(a,'B',['b12er'],'clean');
+ const a=boot();a.run(`S.plan[1].ex.find(e=>e.id==='b12er').reps=20;S.plan[3].ex.find(e=>e.id==='d14er').reps=20`);train(a,'B',['b12er'],'clean');train(a,'B',['b12er'],'clean');
  let p=steps(a,'B').b12er;assert.equal(p.kind,'milestone');
  a.run(`S.today.sid='B';S.today.maxTest=false`);assert.ok(a.run('viewTrain(phase())').includes('Switched · reset to 2 × 15'));
  a.run(`S.today.sid='B';S.today.maxTest=false;stepAction('b12er','reset')`);assert.equal(ex(a,'B','b12er').reps,15);assert.equal(ex(a,'D','d14er').reps,15,'shared ladder resets on both workouts');assert.equal(a.run('S.progress.log[0].kind'),'reset');

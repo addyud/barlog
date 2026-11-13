@@ -6,6 +6,7 @@ Add an entry with every change that affects how the app behaves, including the r
 
 ## 2026-11
 
+- **Nov 13: Band rotation step ups need two clean sessions, not one.** Why: you were being asked to step up on band rotations far more than anything else. It was the only ladder that combined one clean session, a +1 rep step and a ladder shared by B and D, so a session of either workout could re-open the card. It now matches the lever, dips and pull-up ladders. Targets, steps and the 2 × 20 top are unchanged. Commit titled "Band external rotations need two clean sessions to step up".
 - **7c8d10c, Nov 13: Next up follows plan order; a workout swapped out for a wrist break is owed once.** Why: since the Oct 6 "longest ago" rule, sessions had settled into A, C, B, D, so A was always followed by C. The rule only continued whatever order was most recent, and wrist days that pushed C ahead of B once kept it that way. Next up is now the workout after the latest one trained (D wraps to A). A workout dropped by a wrist-break swap is owed once, then the cycle resumes after the swap. Found by replaying the Nov 13 backup.
 
 ## 2026-10
