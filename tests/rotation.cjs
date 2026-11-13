@@ -58,23 +58,4 @@ test('next up follows plan order from the latest session; history edits move it 
  a.run(`pickSession('A');confirmSessionChange()`);a.run(`S.history.unshift({date:'2026-10-05',sid:'B',detail:[]});syncNext()`);assert.equal(a.run('S.today.sid'),'A','a confirmed choice holds');
  assert.ok(!a.run('viewProgress()').includes('Rotation</div>'),'no manual nudge');assert.ok(!a.run('viewProgress()').includes('missed logging'),'no backfill form');
 });
-test('a workout swapped out for a wrist break is owed once, then the cycle resumes after the swap',()=>{
- const a=boot(null,'2026-11-13T08:00:00');
- a.run(`S.history=[{date:'2026-11-06',sid:'A',detail:[]}]`);a.run('syncNext()');assert.equal(a.run('S.today.sid'),'B');
- a.run(`S.today.swappedFrom='B';S.today.sid='C';logSet('c3',0,5);finish()`);
- assert.equal(a.run('S.history[0].owes'),'B');assert.equal(a.run('nextId()'),'B');assert.equal(a.run('S.today.sid'),'B','B comes back next');
- a.run(`logSet('b3',0,1);finish()`);
- assert.equal(a.run('S.history[0].owes'),undefined);assert.equal(a.run('S.history[0].resumeAfter'),'C','paying B resumes the cycle after C');
- assert.equal(a.run('nextId()'),'D','C, B, then D rather than C again');
- a.run(`logSet('d12tuck',0,3);finish()`);assert.equal(a.run('nextId()'),'A');
-});
-test('a swap abandoned or overridden by hand owes nothing; an owed workout skipped once is dropped',()=>{
- const a=boot(null,'2026-11-13T08:00:00');
- a.run(`S.history=[{date:'2026-11-06',sid:'A',detail:[]}]`);a.run('syncNext()');
- a.run(`S.today.swappedFrom='B';pickSession('D');confirmSessionChange()`);assert.equal(a.run('S.today.swappedFrom'),undefined,'a manual choice cancels the swap');
- a.run(`logSet('d12tuck',0,3);finish()`);assert.equal(a.run('S.history[0].owes'),undefined);assert.equal(a.run('nextId()'),'A');
- a.run(`S.history=[{date:'2026-11-06',sid:'C',owes:'B',detail:[],finishedAt:'2026-11-06T09:00:00.000Z'}]`);a.run('syncNext()');assert.equal(a.run('S.today.sid'),'B');
- a.run(`pickSession('A');confirmSessionChange();logSet('a8',0,6);finish()`);
- assert.equal(a.run('S.history[0].owes'),undefined);assert.equal(a.run('nextId()'),'B','plan order from A, owed is forgotten');
-});
 console.log(`${passed} rotation groups passed.`);

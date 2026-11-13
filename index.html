@@ -817,30 +817,6 @@ function maxControl(s){
   if(on&&c.length>1)h+='<div class="chips" style="margin-top:8px">'+c.map(x=>'<button class="chip'+(x.e.max===m.e.max?' on':'')+'" aria-pressed="'+(x.e.max===m.e.max)+'" onclick="setMaxTest(\''+x.e.max+'\')">'+esc(benchName(x.b))+'</button>').join('')+'</div>';
   return h;
 }
-// When a wrist break would drop more than half of a workout, offer the workout trained
-// longest ago that keeps at least half of its own; next up brings the dropped one back once.
-const wristDropped=e=>!!e.wrist&&!e.wristPara&&!wristAltOf(e);
-const dropShare=s=>{ const w=s.ex.filter(e=>e.tier!=="prep"); return w.length?w.filter(wristDropped).length/w.length:0; };
-function wristAlternative(s){
-  if(!S.today.wristBreak||s.testOnly||hasDraft()||dropShare(s)<=0.5)return null;
-  const last={}; for(const r of S.history){ const d=String(r.date); if(!last[r.sid]||d>last[r.sid])last[r.sid]=d; }
-  const others=cycle().filter(p=>p.id!==s.id&&dropShare(p)<=0.5).sort((a,b)=>(last[a.id]||"").localeCompare(last[b.id]||""));
-  return others[0]||null;
-}
-function switchForWrist(id){
-  const alt=wristAlternative(sess()); if(!alt||alt.id!==id)return;
-  const previous=JSON.parse(JSON.stringify(S.today));
-  S.today.swappedFrom=S.today.swappedFrom||S.today.sid;S.today.sid=id;S.today.selectionConfirmed=true;delete S.today.maxTest;delete S.today.wristPick;
-  if(!save()){S.today=previous;render();return;}
-  pendingSession=null;stopTimer();render();
-  document.getElementById('workoutTitle')?.focus?.();
-}
-function viewWristSwap(s){
-  const alt=wristAlternative(s); if(!alt)return "";
-  const w=s.ex.filter(e=>e.tier!=="prep"), dropped=w.filter(wristDropped).length;
-  return '<div class="step back"><b>Wrist break drops '+dropped+' of '+w.length+' exercises here.</b> Train '+esc(alt.id)+' \u00b7 '+esc(alt.name)+' instead? '+esc(s.id)+' comes back next time.'+
-    '<div class="rowBtns"><button class="miniB go" onclick="switchForWrist(\''+alt.id+'\')">Train '+esc(alt.id)+' today</button></div></div>';
-}
 function wristControl(){
   const on=!!S.today.wristBreak;
   return '<button class="daily toggle'+(on?" on":"")+'" role="switch" aria-checked="'+on+'" onclick="setWristBreak('+(!on)+')">'+
@@ -1097,25 +1073,18 @@ const sess=()=>S.plan.find(s=>s.id===S.today.sid)||S.plan[0];
 const cycle=()=>S.plan.filter(s=>!s.testOnly);
 // Next up follows plan order: the workout after the one most recently trained, wrapping from D
 // to A. That is the latest finished session (by finishedAt), else the latest by date. Out-of-order
-// sessions do not reorder the cycle. A workout swapped out for a wrist break is owed: the session
-// that replaced it carries `owes`, and that workout is next once. The session that pays it carries
-// `resumeAfter`, so the cycle carries on from where the swap happened. Benchmarks are not in the
-// rotation; a log with no A\u2013D sessions falls back to the stored rotation counter, which is kept
-// for older backups.
-function latestSession(c){
+// sessions do not reorder the cycle. Benchmarks are not in the rotation; a log with no A\u2013D
+// sessions falls back to the stored rotation counter, which is kept for older backups.
+function nextId(){
+  const c=cycle(); if(!c.length)return "\u2014";
   let done=null, dated=null;
   for(const r of S.history){
     if(!c.some(p=>p.id===r.sid))continue;
     if(r.finishedAt&&(!done||r.finishedAt>done.finishedAt))done=r;
     if(!dated||String(r.date)>String(dated.date))dated=r;
   }
-  return done||dated;
-}
-function nextId(){
-  const c=cycle(); if(!c.length)return "\u2014";
-  const latest=latestSession(c); if(!latest)return c[S.rot%c.length].id;
-  if(latest.owes&&c.some(p=>p.id===latest.owes))return latest.owes;
-  return c[(c.findIndex(p=>p.id===(latest.resumeAfter||latest.sid))+1)%c.length].id;
+  const latest=done||dated; if(!latest)return c[S.rot%c.length].id;
+  return c[(c.findIndex(p=>p.id===latest.sid)+1)%c.length].id;
 }
 function advanceAfter(sid){
   const c=cycle(), i=c.findIndex(p=>p.id===sid);if(i<0)return;
@@ -1659,7 +1628,7 @@ function confirmSessionChange(){
   const chosen=S.plan.find(p=>p.id===pendingSession);
   if(!chosen||hasDraft()){cancelSessionChange();return;}
   const previous=JSON.parse(JSON.stringify(S.today));
-  S.today.sid=chosen.id;S.today.selectionConfirmed=true;delete S.today.swappedFrom;delete S.today.maxTest;delete S.today.wristPick;
+  S.today.sid=chosen.id;S.today.selectionConfirmed=true;delete S.today.maxTest;delete S.today.wristPick;
   if(!save()){S.today=previous;render();return;}
   pendingSession=null;stopTimer();render();
   document.getElementById('workoutTitle')?.focus?.();
@@ -1700,9 +1669,7 @@ function finish(){
   if(S.today.wristBreak)feel.wristBreak=true;
   if(maxed)feel.maxTest=maxed.e.max;
   if(S.today.note&&S.today.note.trim())feel.note=S.today.note.trim();
-  const prev=s.testOnly?null:latestSession(cycle()), paid=!!prev&&prev.owes===s.id;
-  const owes=!s.testOnly&&S.today.swappedFrom&&S.today.swappedFrom!==s.id?{owes:S.today.swappedFrom}:{};
-  S.history.unshift({date:S.today.date||dayKey(),finishedAt:new Date().toISOString(),sid:s.id,...owes,...(paid?{resumeAfter:prev.resumeAfter||prev.sid}:{}),week:calendarWeek(S.today.date||dayKey()),weekSource:"calendar",targetMode:S.targetMode,reps:reps,secs:secs,detail:detail,...feel,...(S.today.rice?{rice:true}:{})});
+  S.history.unshift({date:S.today.date||dayKey(),finishedAt:new Date().toISOString(),sid:s.id,week:calendarWeek(S.today.date||dayKey()),weekSource:"calendar",targetMode:S.targetMode,reps:reps,secs:secs,detail:detail,...feel,...(S.today.rice?{rice:true}:{})});
   // Keep older entries; backups include the complete history.
   if(!s.testOnly)advanceAfter(s.id);
   const pend=S.progress.pending[s.id];
@@ -1996,7 +1963,7 @@ function viewTrain(ph){
     if(hasDraft())h+='<div class="note">Finish or clear this workout before changing. Your logged sets stay with this workout.</div>';
   }
   h+='</details>';
-  h+=viewReadiness()+viewWristSwap(s)+viewReducedHint()+viewCalendar();
+  h+=viewReadiness()+viewReducedHint()+viewCalendar();
 
   /* Daily rice tracking is available with every routine. */
   h+='<div class="daily'+(S.today.rice?" on":"")+'" onclick="toggleRice()"><span class="box">'+(S.today.rice?"✓":"")+'</span>'+
