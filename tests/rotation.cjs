@@ -39,22 +39,42 @@ test('benchmark access is confirmed and finishing returns to the expected rotati
  const a=boot();a.run("pickSession('T')");assert.match(a.run('viewTrain(phase())'),/will not advance/);assert.equal(a.run('S.today.sid'),'A');a.run('confirmSessionChange()');
  a.run("recordBenchmark('t3',0,'2',false);finish()");assert.equal(a.run('S.today.sid'),'A');assert.equal(a.run('S.rot'),0);
 });
-test('next up is the workout trained longest ago; history edits move it unless a draft or choice holds',()=>{
+test('next up follows plan order from the latest session; history edits move it unless a draft or choice holds',()=>{
  const a=boot(null,'2026-10-06T08:00:00');
  const hist=(...rows)=>a.run(`S.history=${JSON.stringify(rows.map(([date,sid])=>({date,sid,detail:[]})))};syncNext()`);
  hist(['2026-09-30','A'],['2026-10-02','C'],['2026-10-04','B'],['2026-09-28','D']);
- assert.equal(a.run('nextId()'),'D','D has waited longest even though B points at C');assert.equal(a.run('S.today.sid'),'D');
- hist(['2026-09-30','A'],['2026-10-02','C'],['2026-10-04','B'],['2026-10-05','D']);assert.equal(a.run('nextId()'),'A');
- hist(['2026-09-23','A'],['2026-09-23','D'],['2026-09-24','B']);assert.equal(a.run('nextId()'),'C','never trained comes first');
- hist(['2026-09-23','A'],['2026-09-23','D'],['2026-09-24','B'],['2026-09-26','C']);assert.equal(a.run('nextId()'),'D','same date: rotation order from the latest session breaks the tie');
+ assert.equal(a.run('nextId()'),'C','the latest session was B, so C follows even though C was trained before it');assert.equal(a.run('S.today.sid'),'C');
+ hist(['2026-09-30','A'],['2026-10-02','C'],['2026-10-04','B'],['2026-10-05','D']);assert.equal(a.run('nextId()'),'A','D wraps to A');
+ hist(['2026-09-23','A'],['2026-09-23','D'],['2026-09-24','B']);assert.equal(a.run('nextId()'),'C');
+ hist(['2026-09-23','A'],['2026-09-23','D'],['2026-09-24','B'],['2026-09-26','C']);assert.equal(a.run('nextId()'),'D');
+ hist(['2026-11-12','A'],['2026-11-10','D'],['2026-11-06','B'],['2026-11-02','C']);assert.equal(a.run('nextId()'),'B','an A, C, B, D habit does not lock in: A is followed by B');
  hist(['2026-10-01','A'],['2026-10-02','T']);assert.equal(a.run('nextId()'),'B','benchmarks are not in the rotation');
  hist();a.run('S.rot=2');assert.equal(a.run('nextId()'),'C','no A–D history falls back to the stored counter');
  hist(['2026-09-23','A'],['2026-09-23','D'],['2026-09-24','B'],['2026-09-21','C']);a.run(`S.history[3].finishedAt='2026-09-25T10:00:00.000Z'`);
- assert.equal(a.run('nextId()'),'D','the workout just finished is never next, whatever its date');
- hist(['2026-09-30','A'],['2026-10-02','C'],['2026-10-04','B']);assert.equal(a.run('S.today.sid'),'D');
+ assert.equal(a.run('nextId()'),'D','the session just finished (latest finishedAt) leads, whatever its date');
+ hist(['2026-09-30','A'],['2026-10-02','C'],['2026-10-04','B']);assert.equal(a.run('S.today.sid'),'C');
  a.run(`S.history.unshift({date:'2026-10-05',sid:'D',detail:[]});syncNext()`);assert.equal(a.run('S.today.sid'),'A','an added session moves next up');
- a.run('delHist(0)');assert.equal(a.run('S.today.sid'),'D','deleting it moves it back');
- a.run(`pickSession('B');confirmSessionChange()`);a.run(`S.history.unshift({date:'2026-10-05',sid:'B',detail:[]});syncNext()`);assert.equal(a.run('S.today.sid'),'B','a confirmed choice holds');
+ a.run('delHist(0)');assert.equal(a.run('S.today.sid'),'C','deleting it moves it back');
+ a.run(`pickSession('A');confirmSessionChange()`);a.run(`S.history.unshift({date:'2026-10-05',sid:'B',detail:[]});syncNext()`);assert.equal(a.run('S.today.sid'),'A','a confirmed choice holds');
  assert.ok(!a.run('viewProgress()').includes('Rotation</div>'),'no manual nudge');assert.ok(!a.run('viewProgress()').includes('missed logging'),'no backfill form');
+});
+test('a workout swapped out for a wrist break is owed once, then the cycle resumes after the swap',()=>{
+ const a=boot(null,'2026-11-13T08:00:00');
+ a.run(`S.history=[{date:'2026-11-06',sid:'A',detail:[]}]`);a.run('syncNext()');assert.equal(a.run('S.today.sid'),'B');
+ a.run(`S.today.swappedFrom='B';S.today.sid='C';logSet('c3',0,5);finish()`);
+ assert.equal(a.run('S.history[0].owes'),'B');assert.equal(a.run('nextId()'),'B');assert.equal(a.run('S.today.sid'),'B','B comes back next');
+ a.run(`logSet('b3',0,1);finish()`);
+ assert.equal(a.run('S.history[0].owes'),undefined);assert.equal(a.run('S.history[0].resumeAfter'),'C','paying B resumes the cycle after C');
+ assert.equal(a.run('nextId()'),'D','C, B, then D rather than C again');
+ a.run(`logSet('d12tuck',0,3);finish()`);assert.equal(a.run('nextId()'),'A');
+});
+test('a swap abandoned or overridden by hand owes nothing; an owed workout skipped once is dropped',()=>{
+ const a=boot(null,'2026-11-13T08:00:00');
+ a.run(`S.history=[{date:'2026-11-06',sid:'A',detail:[]}]`);a.run('syncNext()');
+ a.run(`S.today.swappedFrom='B';pickSession('D');confirmSessionChange()`);assert.equal(a.run('S.today.swappedFrom'),undefined,'a manual choice cancels the swap');
+ a.run(`logSet('d12tuck',0,3);finish()`);assert.equal(a.run('S.history[0].owes'),undefined);assert.equal(a.run('nextId()'),'A');
+ a.run(`S.history=[{date:'2026-11-06',sid:'C',owes:'B',detail:[],finishedAt:'2026-11-06T09:00:00.000Z'}]`);a.run('syncNext()');assert.equal(a.run('S.today.sid'),'B');
+ a.run(`pickSession('A');confirmSessionChange();logSet('a8',0,6);finish()`);
+ assert.equal(a.run('S.history[0].owes'),undefined);assert.equal(a.run('nextId()'),'B','plan order from A, owed is forgotten');
 });
 console.log(`${passed} rotation groups passed.`);

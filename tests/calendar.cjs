@@ -61,7 +61,7 @@ test('date correction relabels calendar without rewriting original legacy labels
  a.run("S.history[0].weekSource='calendar';setHistDate(0,'2026-09-10')");assert.equal(a.run('S.history[0].week'),4);
 });
 test('finishing an out-of-order session follows the completed letter, benchmark does not rotate, empty finish is ignored',()=>{
- const a=boot(legacy());a.run("S.today.sid='D';S.today.log={d12tuck:[3]};finish()");assert.equal(a.run('nextId()'),'C','C was trained longest ago in this fixture');
+ const a=boot(legacy());a.run("S.today.sid='D';S.today.log={d12tuck:[3]};finish()");assert.equal(a.run('nextId()'),'A','A follows the D just finished');
  const rot=a.run('S.rot'),n=a.run('S.history.length');a.run('finish()');assert.equal(a.run('S.history.length'),n);
  a.run("S.today.sid='T';S.today.log={t3:[1]};finish()");assert.equal(a.run('S.rot'),rot);
 });

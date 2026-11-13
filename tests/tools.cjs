@@ -287,7 +287,7 @@ test('wrist alternatives are added once to saved default one-arm prep and respec
 });
 test('a wrist break that drops most of a workout offers the longest-waiting hanging workout instead',()=>{
  const a=boot(null,'2026-10-06T08:00:00');
- a.run(`S.history=[{date:'2026-09-30',sid:'A',detail:[]},{date:'2026-10-02',sid:'C',detail:[]},{date:'2026-10-04',sid:'B',detail:[]}];syncNext()`);
+ a.run(`S.history=[{date:'2026-09-30',sid:'A',detail:[]},{date:'2026-10-02',sid:'B',detail:[]},{date:'2026-10-04',sid:'C',detail:[]}];syncNext()`);
  a.run(`['d12tuck','d9lean','d13support','d14er'].forEach(id=>editField('D',id,'wrist',true))`); // one-arm prep has alternatives, so D drops nothing by default; make it 4 of 6
  assert.equal(a.run('S.today.sid'),'D');assert.equal(a.run('viewWristSwap(sess())'),'','nothing without the break');
  a.run('setWristBreak(true)');let html=a.run('viewTrain(phase())');
@@ -298,8 +298,8 @@ test('a wrist break that drops most of a workout offers the longest-waiting hang
  a.run(`S.today.sid='D';switchForWrist('C')`);assert.equal(a.run('S.today.sid'),'D','only the offered workout is accepted');
  a.run(`switchForWrist('A')`);assert.equal(a.run('S.today.sid'),'A');assert.equal(a.run('S.today.selectionConfirmed'),true);assert.equal(a.run('S.today.wristBreak'),true,'the break stays on');
  assert.equal(a.run('viewWristSwap(sess())'),'');
- a.run(`logSet('a8',0,6);setFeel('clean');finish()`);assert.equal(a.run('S.today.sid'),'D','D comes back next time');
- a.run(`setWristBreak(true);logSet('d13support',0,15)`);assert.equal(a.run('viewWristSwap(sess())'),'','no offer once sets are logged');
+ a.run(`logSet('a8',0,6);setFeel('clean');finish()`);assert.equal(a.run('S.today.sid'),'D','D is owed and comes back next time');assert.equal(a.run('S.history[0].owes'),'D');
+ a.run(`S.today.sid='D';S.today.selectionConfirmed=true;setWristBreak(true);logSet('d13support',0,15)`);assert.equal(a.run('viewWristSwap(sess())'),'','no offer once sets are logged');
  a.run('clearDay()');a.run('setWristBreak(true)');const before=a.json('S');a.fail(true);a.run(`switchForWrist('A')`);assert.deepEqual(a.json('S'),before);
 });
 console.log(`${passed} tool groups passed.`);
