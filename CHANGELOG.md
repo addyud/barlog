@@ -13,7 +13,7 @@ Add an entry with every change that affects how the app behaves, including the r
 ## 2026-10
 
 - **2b162f6, Oct 27: Calendar weeks run Monday to Sunday; quick session note.** No reason recorded in the commit.
-- **22705a2, Oct 19: Planche work stays on wrist breaks; one-arm prep offers parallettes or a ring alternative.** Why: you only know on the day whether the wrist tolerates parallettes, so the choice is made on the day instead of being dropped outright.
+- **22705a2, Oct 19: Planche work stays on wrist breaks; one-arm prep offers parallettes or a ring alternative.** Why: you only know on the day whether the wrist tolerates parallettes, so the choice is made on the day instead of being dropped outright. Side effect, not intended and not noted at the time: with fewer exercises dropped outright, no workout lost more than half its exercises any more, so the wrist-break workout swap card stopped appearing from this date. Fixed Nov 13 (see above).
 - **80a7561, Oct 6: Offer another workout when a wrist break drops most of this one.** Why: a wrist break left D with only 2 of 6 exercises, so the app offers the workout trained longest ago that keeps at least half of its own. (Its "comes back next time" promise was reworked on Nov 13.)
 - **8f4d228, Oct 6: Remove the missed-session form.** Why: logging after the fact was a one-off need; sessions are logged live.
 - **6cbbf13, Oct 6: Next up is the workout trained longest ago.** Why: an out-of-order week (A, C, B) left D waiting while C came round again. Replaced on Nov 13 because the rule kept an A, C, B, D order going by itself.
